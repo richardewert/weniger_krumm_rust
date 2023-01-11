@@ -11,3 +11,29 @@ draw = "0.3.0"
 env_logger = "0.10.0"
 libm = "0.2.6"
 log = "0.4.17"
+
+[profile.dev]
+#rustflags = ["-C", "target-cpu=znver3"]
+opt-level = 3
+debug = true
+#split-debuginfo = '...'  # Platform-specific.
+debug-assertions = true
+overflow-checks = true
+lto = false
+panic = 'unwind'
+incremental = true
+codegen-units = 256
+rpath = false
+
+[profile.release]
+#rustflags = ["-C", "target-cpu=znver3"]
+opt-level = 3
+debug = false
+#split-debuginfo = '...'  # Platform-specific.
+debug-assertions = false
+overflow-checks = false
+lto = true
+panic = 'unwind'
+incremental = false
+codegen-units = 1
+rpath = false

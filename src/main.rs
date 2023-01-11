@@ -1,12 +1,13 @@
-use std::io::prelude::*;
-use std::path::Path;
+use std::{path::Path, collections::HashMap};
+use std::io::Read;
+use std::cmp::Ordering;
 use std::fs::File;
 use std::path::PathBuf;
 use std::time::Instant;
 use clap::Parser;
 use draw::*;
 use node_mod::Node;
-use log::{debug, info, warn, error};
+use log::{debug, info};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -24,7 +25,7 @@ struct Args {
 
 pub mod node_mod {
     use libm::acosf;
-    use std::f64::consts::PI;
+    use std::f32::consts::PI;
 
     #[derive(Copy, Clone, Debug)]
     pub struct Node {
@@ -62,7 +63,7 @@ pub mod node_mod {
             return distance.sqrt();
         }
 
-        pub fn angle(&self, one: &Node, other: &Node) -> f64 {
+        pub fn angle(&self, one: &Node, other: &Node) -> f32 {
             let gegenkathete = one.distance(other);
             let ankathete = self.distance(one);
             let hypothenuse = self.distance(other);
@@ -71,11 +72,21 @@ pub mod node_mod {
 
             let angle = acosf(cos_angle);
 
-            let angle_degrees: f64 = <f32 as Into<f64>>::into(angle) * 180f64 / PI;
+            let angle_degrees: f32 = angle * 180f32 / PI;
 
-            return (angle_degrees * 1000f64).round() / 1000f64;
+            return (angle_degrees * 1000f32).round() / 1000f32;
+        }
+
+        pub fn make_key(&self) -> (i32, i32) {
+            return (self.x as i32, self.y as i32);
         }
     }
+}
+
+#[derive(Debug)]
+struct Task {
+    path: Vec<Node>,
+    free: Vec<Node>,
 }
 
 fn get_input() -> String {
@@ -155,6 +166,92 @@ fn render(nodes: &Vec<Node>, solution: &Vec<Node>) {
     ).expect("Failed to save");
 }
 
+fn solve(nodes: Vec<Node>, start_queue: Option<Vec<Task>>, _angles: &HashMap<((i32, i32), (i32, i32), (i32, i32)), bool>) -> (Option<Vec<Node>>, Option<Vec<Task>>) {
+    let nodes_len = nodes.len();
+    let mut queue = vec![Task {
+        path: vec![],
+        free: nodes,
+    }];
+
+    match start_queue {
+        Some(start_queue) => queue = start_queue,
+        None => queue = queue,
+    }
+    
+    let timer = Instant::now();
+    let mut iteration: u64 = 0;
+    while !queue.is_empty() {
+        if iteration % 1000000 == 0 {
+            info!("Iterations per second: {:?}", iteration as f32 / timer.elapsed().as_secs_f32());
+        }
+        //Match
+        let mut task = match queue.pop() {
+            Some(task) => task,
+            None => panic!("Queue can not be empty, since it is in the while loop"),
+        }; 
+        if task.path.len() == nodes_len {
+            return (Some(task.path.clone()), Some(queue));
+        }
+        task.free.sort_by(|a, b| {
+            if task.path.len() > 0 {
+                let last = task.path.last().unwrap();
+                let val_a = last.distance(a);
+                let val_b = last.distance(b);
+                if val_a > val_b {
+                    return Ordering::Less;
+                } else if val_a == val_b {
+                    return Ordering::Equal;
+                } else {
+                    return Ordering::Greater;
+                }
+            }
+            Ordering::Equal
+        });
+
+        for (i, node) in task.free.iter().enumerate() {
+            let mut allowed = false;
+            if task.path.len() <= 1 {
+                allowed = true;
+            } else if task.path[task.path.len() - 1].angle(&task.path[task.path.len() - 2], node) > 90f32 {
+            //} else if *angles.get(&(task.path[task.path.len() - 2].make_key(), task.path[task.path.len() - 1].make_key(), node.make_key())).unwrap() {
+                allowed = true;
+            }
+
+            if allowed {
+                let mut path = task.path.clone();
+                let mut free = task.free.clone();
+                path.push(*node);
+                free.remove(i);
+                queue.push(Task { path, free });
+            }
+        }
+        iteration += 1;
+    }
+    (None, None)
+}
+
+fn path_len(path: &Vec<Node>) -> f32 {
+    let mut distance: f32 = 0f32;
+    for (i, node) in path.iter().enumerate() {
+        if i < path.len() - 1 {
+            distance += node.distance(&path[i + 1]);
+        }
+    }
+}
+
+fn pre_calculate_angles(nodes: &Vec<Node>) -> HashMap<((i32, i32), (i32, i32), (i32, i32)), bool> {
+    let mut angles = HashMap::new();
+    for start in nodes.iter() {
+        for main in nodes.iter() {
+            for end in nodes.iter() {
+                let angle = main.angle(start, end);
+                angles.insert((start.make_key(), main.make_key(), end.make_key()), angle > 90f32);
+            }
+        }
+    }
+    return angles;
+}
+
 fn main() {
     env_logger::init();
     let total_time = Instant::now();
@@ -162,10 +259,21 @@ fn main() {
     debug!("The following nodes were loaded:\n{:?}", nodes);
 
     let compute_render_time = Instant::now();
-    solve();
+    let angles = pre_calculate_angles(&nodes);
+    //TODO Match
+    let mut solutions: Vec<Vec<Node>> = vec![];
+    let mut queue: Option<Vec<Task>> = None;
+    while solutions.len() < 100000 {
+        let solution = solve(nodes.clone(), queue, &angles);
+        queue = solution.1;
+        match solution.0 {
+            Some(solution) => {solutions.push(solution)},
+            _ => {},
+        }
+    }
 
     let render_time = Instant::now();
-    render(&nodes, &nodes);
+    render(&nodes, &solutions[1]);
     let total = total_time.elapsed().as_micros();
     info!( "
 =============Time=============
