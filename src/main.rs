@@ -237,6 +237,7 @@ fn path_len(path: &Vec<Node>) -> f32 {
             distance += node.distance(&path[i + 1]);
         }
     }
+    distance
 }
 
 fn pre_calculate_angles(nodes: &Vec<Node>) -> HashMap<((i32, i32), (i32, i32), (i32, i32)), bool> {
@@ -263,17 +264,40 @@ fn main() {
     //TODO Match
     let mut solutions: Vec<Vec<Node>> = vec![];
     let mut queue: Option<Vec<Task>> = None;
-    while solutions.len() < 100000 {
-        let solution = solve(nodes.clone(), queue, &angles);
-        queue = solution.1;
-        match solution.0 {
-            Some(solution) => {solutions.push(solution)},
-            _ => {},
+    let mut best: Option<Vec<Node>> = None;
+    while solutions.len() < 1000 {
+        let result = solve(nodes.clone(), queue, &angles);
+        queue = result.1;
+        let solution = result.0;
+        match solution.clone() {
+            None => {},
+            Some(path) => {solutions.push(path);}
         }
+        /*if match best {Some(_) => true, None => false} {
+            match  {
+                
+            }
+            if path_len(best) > path_len(solution) {
+                best = solution;
+            } 
+        } else {
+            best = solution;
+        }*/
     }
+    solutions.sort_by(|a, b| {  
+        let val_a = path_len(a);
+        let val_b = path_len(b);
+        if val_a < val_b {
+            Ordering::Less
+        } else if val_a == val_b {
+            Ordering::Equal
+        } else {
+            Ordering::Greater
+        }
+    });
 
     let render_time = Instant::now();
-    render(&nodes, &solutions[1]);
+    render(&nodes, &solutions[0]);
     let total = total_time.elapsed().as_micros();
     info!( "
 =============Time=============
@@ -282,10 +306,10 @@ compute: ca. {:?}%
 render: ca. {:?}%
 ---------------
 total: {:?} mikro seconds",
-            (total - compute_render_time.elapsed().as_micros()) * 100 / total,
-            (compute_render_time.elapsed().as_micros() -
-            render_time.elapsed().as_micros()) * 100 / total,
-            render_time.elapsed().as_micros() * 100 / total,
-            total
+        (total - compute_render_time.elapsed().as_micros()) * 100 / total,
+        (compute_render_time.elapsed().as_micros() -
+        render_time.elapsed().as_micros()) * 100 / total,
+        render_time.elapsed().as_micros() * 100 / total,
+        total
     );
 }
