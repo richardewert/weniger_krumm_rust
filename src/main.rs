@@ -74,7 +74,7 @@ pub mod node_mod {
 
             let angle_degrees: f32 = angle * 180f32 / PI;
 
-            return (angle_degrees * 1000f32).round() / 1000f32;
+            angle_degrees
         }
 
         pub fn make_key(&self) -> (i32, i32) {
@@ -184,7 +184,6 @@ fn solve(nodes: Vec<Node>, start_queue: Option<Vec<Task>>, _angles: &HashMap<((i
         if iteration % 1000000 == 0 {
             info!("Iterations per second: {:?}", iteration as f32 / timer.elapsed().as_secs_f32());
         }
-        //Match
         let mut task = match queue.pop() {
             Some(task) => task,
             None => panic!("Queue can not be empty, since it is in the while loop"),
@@ -264,7 +263,6 @@ fn main() {
     //TODO Match
     let mut solutions: Vec<Vec<Node>> = vec![];
     let mut queue: Option<Vec<Task>> = None;
-    let mut best: Option<Vec<Node>> = None;
     while solutions.len() < 1000 {
         let result = solve(nodes.clone(), queue, &angles);
         queue = result.1;
@@ -273,16 +271,6 @@ fn main() {
             None => {},
             Some(path) => {solutions.push(path);}
         }
-        /*if match best {Some(_) => true, None => false} {
-            match  {
-                
-            }
-            if path_len(best) > path_len(solution) {
-                best = solution;
-            } 
-        } else {
-            best = solution;
-        }*/
     }
     solutions.sort_by(|a, b| {  
         let val_a = path_len(a);
