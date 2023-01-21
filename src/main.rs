@@ -166,7 +166,7 @@ fn render(nodes: &Vec<Node>, solution: &Vec<Node>) {
     ).expect("Failed to save");
 }
 
-fn solve(nodes: Vec<Node>, start_queue: Option<Vec<Task>>, _angles: &HashMap<((i32, i32), (i32, i32), (i32, i32)), bool>) -> (Option<Vec<Node>>, Option<Vec<Task>>) {
+fn solve(nodes: Vec<Node>, start_queue: Option<Vec<Task>>, angles: &Vec<Vec<Vec<usize>>>) -> (Option<Vec<Node>>, Option<Vec<Task>>) {
     let nodes_len = nodes.len();
     let mut queue = vec![Task {
         path: vec![],
@@ -239,13 +239,17 @@ fn path_len(path: &Vec<Node>) -> f32 {
     distance
 }
 
-fn pre_calculate_angles(nodes: &Vec<Node>) -> HashMap<((i32, i32), (i32, i32), (i32, i32)), bool> {
-    let mut angles = HashMap::new();
-    for start in nodes.iter() {
-        for main in nodes.iter() {
-            for end in nodes.iter() {
-                let angle = main.angle(start, end);
-                angles.insert((start.make_key(), main.make_key(), end.make_key()), angle > 90f32);
+fn pre_calculate_angles(nodes: &Vec<Node>) -> Vec<Vec<Vec<usize>>> {
+    let mut angles: Vec<Vec<Vec<usize>>> = vec![];
+    for (start, start_node) in nodes.iter().enumerate() {
+        angles.push(vec![]);
+        for (main, main_node) in nodes.iter().enumerate() {
+            angles[start].push(vec![]);
+            for (end, end_node) in nodes.iter().enumerate() {
+                let angle = main_node.angle(start_node, end_node) > 90f32;
+                if angle {
+                    angles[start][main].push(end);
+                }
             }
         }
     }
