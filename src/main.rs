@@ -10,7 +10,6 @@ use log::{debug, info};
 #[derive(Debug, Clone)]
 struct Task {
     path: Vec<usize>,
-    free: Vec<usize>,
 }
 
 fn indices_to_nodes(nodes: Vec<Node>, indices_path: &Vec<usize>) -> Vec<Node> {
@@ -66,7 +65,7 @@ fn generate_start_tasks(nodes: &Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distan
                     let mut free: Vec<usize> = (0..nodes.len()).collect();
                     free.retain(|x| !path.contains(x));
 
-                    tasks.push(Task { path, free });
+                    tasks.push(Task { path });
                 }
             }
         }
@@ -103,14 +102,14 @@ fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f3
     return (angles, distances);
 }
 
-fn get_tasks(path: Vec<usize>, free: Vec<usize>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
+fn get_tasks(path: Vec<usize>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
     let mut potential_options: Vec<usize> = angles[path[path.len() - 2]][path[path.len() - 1]].clone();
     potential_options.retain(|potential_option| {return !path.contains(potential_option)});
     let mut next_tasks: Vec<Task> = vec![]; 
     for node_i in potential_options.iter() {
         let mut new_path = path.clone();
         new_path.push(*node_i);
-        next_tasks.push(Task { path: new_path, free: vec![] });
+        next_tasks.push(Task { path: new_path});
     }
     sort_tasks(&mut next_tasks, &distances, true);
     next_tasks
@@ -143,7 +142,7 @@ fn solve(nodes: Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f3
                 debug!("Solution Nr. {:?}: \nSolution length: {:?} \n{:?} ", solution_paths.len(), new_len, new);
             }
         }
-        let mut tasks = get_tasks(task.path, task.free, &angles, &distances);
+        let mut tasks = get_tasks(task.path, &angles, &distances);
         task_queue.append(&mut tasks);
         iteration += 1;
     }
