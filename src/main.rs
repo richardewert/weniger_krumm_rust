@@ -238,9 +238,8 @@ fn indices_to_nodes(nodes: Vec<Node>, indices_path: &Vec<usize>) -> Vec<Node> {
     node_path
 }
 
-fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
-    let (angles, distances) = calc_angles_distances(&nodes);
-    let mut task_queue: Vec<Task> = generate_start_tasks(&nodes, &angles, &distances);
+fn solve(nodes: Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Option<Vec<Node>> {
+    let mut task_queue: Vec<Task> = generate_start_tasks(&nodes, angles, distances);
 
     let mut solution_paths: Vec<Vec<usize>> = vec![];
 
@@ -268,7 +267,7 @@ fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
         if task.path.len() == nodes.len() {
             solution_paths.push(task.path.clone());
             let new = solution_paths.last().unwrap();
-            let new_len = path_len(new, &distances);
+            let new_len = path_len(new, distances);
             if shortest_length > new_len {
                 shortest_length = new_len.clone();
                 shortest = new.clone();
@@ -327,10 +326,10 @@ fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f3
 
 fn main() {
     env_logger::init();
-    let nodes = read_nodes();
-    
-    
-    let solution: Vec<Node> = match solve(nodes.clone()) {
+    let nodes = read_nodes(); 
+
+    let (angles, distances) = calc_angles_distances(&nodes);
+    let solution: Vec<Node> = match solve(nodes.clone(), &angles, &distances) {
         Some(x) => x,
         _ => {println!("No solution found."); return;},
     };
