@@ -4,7 +4,7 @@ use std::cmp::Ordering;
 mod input_output_mod;
 mod node_mod;
 use node_mod::Node;
-use input_output_mod::{render, read_nodes};
+use input_output_mod::{render, read_nodes, give_status_info};
 use log::{debug, info};
 
 #[derive(Debug, Clone)]
@@ -75,24 +75,6 @@ fn generate_start_tasks(nodes: &Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distan
     info!("Generated {} start tasks", tasks.len());
     debug!("Start tasks: {:?}", tasks);
     tasks
-}
-
-fn give_status_info(iteration: i64, timer: Instant, mut last_time: f32) -> f32 {
-    let update_frequency = 1000000;
-    if iteration % update_frequency == 0 {
-        let average_iterations = iteration as f32 / timer.elapsed().as_secs_f32();
-        let update_time = timer.elapsed().as_secs_f32() - last_time;
-        let iterations = update_frequency as f64 / update_time as f64 ;
-        info!("
-            Average iterations per second:  {:?}
-            Iterations per second           {:?}    
-            Time since last update:         {:?}",
-                average_iterations.round() as u32,
-            iterations.round() as u32,
-            update_time);
-        last_time = timer.elapsed().as_secs_f32(); 
-    }
-    last_time
 }
 
 fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) { 

@@ -1,4 +1,5 @@
 use crate::Node;
+use std::time::Instant;
 use draw::*;
 use std::path::Path;
 use std::io::Read;
@@ -99,3 +100,22 @@ pub fn render(nodes: &Vec<Node>, solution: &Vec<Node>) {
     ).expect("Failed to save");
     info!("Rendered image");
 }
+
+pub fn give_status_info(iteration: i64, timer: Instant, mut last_time: f32) -> f32 {
+    let update_frequency = 1000000;
+    if iteration % update_frequency == 0 {
+        let average_iterations = iteration as f32 / timer.elapsed().as_secs_f32();
+        let update_time = timer.elapsed().as_secs_f32() - last_time;
+        let iterations = update_frequency as f64 / update_time as f64 ;
+        info!("
+            Average iterations per second:  {:?}
+            Iterations per second           {:?}    
+            Time since last update:         {:?}",
+                average_iterations.round() as u32,
+            iterations.round() as u32,
+            update_time);
+        last_time = timer.elapsed().as_secs_f32(); 
+    }
+    last_time
+}
+
