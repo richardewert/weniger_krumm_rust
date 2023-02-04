@@ -53,7 +53,7 @@ fn sort_tasks(tasks: &mut Vec<Task>, distances: &Vec<Vec<f32>>, sort_by_last: bo
 }
 
 //Choose shortest valid path of 3 nodes to begin from.
-fn generate_start_tasks(nodes: &Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
+fn generate_start_tasks(nodes: &Vec<Node>, angles: &Vec<Vec<Vec<bool>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
     let mut tasks: Vec<Task> = vec![];
     for (first_node_index, second_node_indices) in angles.iter().enumerate() {
         for (second_node_index, third_node_indices) in second_node_indices.iter().enumerate() {
@@ -77,9 +77,9 @@ fn generate_start_tasks(nodes: &Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distan
     tasks
 }
 
-fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) { 
+fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<bool>>>, Vec<Vec<f32>>) { 
     let mut distances: Vec<Vec<f32>> = vec![];
-    let mut angles: Vec<Vec<Vec<usize>>> = vec![];
+    let mut angles: Vec<Vec<Vec<bool>>> = vec![];
     let mut cache_entries = 0;
     for (start, start_node) in nodes.iter().enumerate() {
         distances.push(vec![]);
@@ -90,10 +90,8 @@ fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f3
             for (end, end_node) in nodes.iter().enumerate() {
                 let angle = main_node.angle(start_node, end_node);
                 debug!("Angle between {start}, {main}, {end} : {angle}");
-                if 90f32 <= angle {
-                    angles[start][main].push(end);
-                    cache_entries += 1;
-                }
+                angles[start][main].push(90f32 <= angle);
+                cache_entries += 1;
             }
         }
     }
@@ -103,7 +101,7 @@ fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f3
     return (angles, distances);
 }
 
-fn get_tasks(path: Vec<usize>, free: Vec<usize>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
+fn get_tasks(path: Vec<usize>, free: Vec<usize>, angles: &Vec<Vec<Vec<bool>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
     let mut potential_options: Vec<usize> = angles[path[path.len() - 2]][path[path.len() - 1]].clone();
     potential_options.retain(|potential_option| {return free.contains(potential_option)});
     let mut next_tasks: Vec<Task> = vec![]; 
@@ -118,7 +116,7 @@ fn get_tasks(path: Vec<usize>, free: Vec<usize>, angles: &Vec<Vec<Vec<usize>>>, 
     next_tasks
 }
 
-fn solve(nodes: Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Option<Vec<Node>> {
+fn solve(nodes: Vec<Node>, angles: &Vec<Vec<Vec<bool>>>, distances: &Vec<Vec<f32>>) -> Option<Vec<Node>> {
     let mut task_queue: Vec<Task> = generate_start_tasks(&nodes, angles, distances);
 
     let timer = Instant::now();
