@@ -175,20 +175,6 @@ fn generate_start_tasks(nodes: &Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distan
     tasks
 }
 
-fn get_tasks(path: Vec<usize>, free: Vec<usize>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
-    let mut potential_options: Vec<usize> = angles[path[path.len() - 2]][path[path.len() - 1]].clone();
-    potential_options.retain(|potential_option| {return free.contains(potential_option)});
-    let mut next_tasks: Vec<Task> = vec![]; 
-    for node_i in potential_options.iter() {
-        let mut new_free = free.clone();
-        let mut new_path = path.clone();
-        new_free.retain(|x| {return x != node_i});
-        new_path.push(*node_i);
-        next_tasks.push(Task { path: new_path, free: new_free });
-    }
-    sort_tasks(&mut next_tasks, &distances, true);
-    next_tasks
-}
 
 fn give_status_info(iteration: i64, timer: Instant, mut last_time: f32) -> f32 {
     let update_frequency = 1000000;
@@ -232,6 +218,21 @@ fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f3
     debug!("Cached entries: {:?}", angles);
     debug!("Cached distances: {:?}", distances);
     return (angles, distances);
+}
+
+fn get_tasks(path: Vec<usize>, free: Vec<usize>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
+    let mut potential_options: Vec<usize> = angles[path[path.len() - 2]][path[path.len() - 1]].clone();
+    potential_options.retain(|potential_option| {return free.contains(potential_option)});
+    let mut next_tasks: Vec<Task> = vec![]; 
+    for node_i in potential_options.iter() {
+        let mut new_free = free.clone();
+        let mut new_path = path.clone();
+        new_free.retain(|x| {return x != node_i});
+        new_path.push(*node_i);
+        next_tasks.push(Task { path: new_path, free: new_free });
+    }
+    sort_tasks(&mut next_tasks, &distances, true);
+    next_tasks
 }
 
 fn solve(nodes: Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Option<Vec<Node>> {
