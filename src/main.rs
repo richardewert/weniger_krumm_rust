@@ -57,12 +57,12 @@ fn generate_start_tasks(nodes: &Vec<Node>, angles: &Vec<Vec<Vec<bool>>>, distanc
     let mut tasks: Vec<Task> = vec![];
     for (first_node_index, second_node_indices) in angles.iter().enumerate() {
         for (second_node_index, third_node_indices) in second_node_indices.iter().enumerate() {
-            for valid_third_node_index in third_node_indices.iter() {
+            for (third_node_index, valid) in third_node_indices.iter().enumerate() {
                 if first_node_index != second_node_index &&
-                    second_node_index != *valid_third_node_index &&
-                    first_node_index != *valid_third_node_index 
+                    second_node_index != third_node_index &&
+                    first_node_index != third_node_index && *valid 
                 {
-                    let path = vec![first_node_index, second_node_index, *valid_third_node_index];
+                    let path = vec![first_node_index, second_node_index, third_node_index];
                     let mut free: Vec<usize> = (0..nodes.len()).collect();
                     free.retain(|x| !path.contains(x));
 
@@ -102,15 +102,14 @@ fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<bool>>>, Vec<Vec<f32
 }
 
 fn get_tasks(path: Vec<usize>, free: Vec<usize>, angles: &Vec<Vec<Vec<bool>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
-    let mut potential_options: Vec<usize> = angles[path[path.len() - 2]][path[path.len() - 1]].clone();
-    potential_options.retain(|potential_option| {return free.contains(potential_option)});
-    let mut next_tasks: Vec<Task> = vec![]; 
-    for node_i in potential_options.iter() {
-        let mut new_free = free.clone();
-        let mut new_path = path.clone();
-        new_free.retain(|x| {return x != node_i});
-        new_path.push(*node_i);
-        next_tasks.push(Task { path: new_path, free: new_free });
+    let mut next_tasks: Vec<Task> = vec![];
+    for (i, node_i) in free.iter().enumerate() {
+        if angles[path[path.len() - 2]][path[path.len() - 1]][*node_i] {
+            let mut new_path = path.clone();
+            let mut new_free = free.clone();
+            new_path.push(new_free.remove(i));
+            next_tasks.push(Task { path: new_path, free: new_free });
+        }
     }
     sort_tasks(&mut next_tasks, &distances, true);
     next_tasks
