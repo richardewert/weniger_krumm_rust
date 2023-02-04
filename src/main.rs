@@ -130,6 +130,14 @@ fn read_nodes() -> Vec<Node> {
     nodes
 }
 
+fn indices_to_nodes(nodes: Vec<Node>, indices_path: &Vec<usize>) -> Vec<Node> {
+    let mut node_path: Vec<Node> = vec![];
+    for i in indices_path {
+        node_path.push(nodes[*i]);
+    }
+    node_path
+}
+
 fn render(nodes: &Vec<Node>, solution: &Vec<Node>) {
     let size_x = 1080;
     let size_y = 720;
@@ -167,6 +175,16 @@ fn render(nodes: &Vec<Node>, solution: &Vec<Node>) {
         SvgRenderer::new(),
     ).expect("Failed to save");
     info!("Rendered image");
+}
+
+fn path_len(path: &Vec<usize>, distances: &Vec<Vec<f32>>) -> f32 {
+    let mut distance: f32 = 0f32;
+    for (i, _node_index) in path.iter().enumerate() {
+        if i < path.len() - 1 {
+            distance += distances[path[i]][path[i + 1]];
+        }
+    }
+    distance
 }
 
 fn sort_tasks(tasks: &mut Vec<Task>, distances: &Vec<Vec<f32>>, sort_by_last: bool) {
@@ -230,14 +248,6 @@ fn get_tasks(path: Vec<usize>, free: Vec<usize>, angles: &Vec<Vec<Vec<usize>>>, 
     next_tasks
 }
 
-fn indices_to_nodes(nodes: Vec<Node>, indices_path: &Vec<usize>) -> Vec<Node> {
-    let mut node_path: Vec<Node> = vec![];
-    for i in indices_path {
-        node_path.push(nodes[*i]);
-    }
-    node_path
-}
-
 fn give_status_info(iteration: i64, timer: Instant, mut last_time: f32) -> f32 {
     let update_frequency = 1000000;
     if iteration % update_frequency == 0 {
@@ -254,6 +264,32 @@ fn give_status_info(iteration: i64, timer: Instant, mut last_time: f32) -> f32 {
         last_time = timer.elapsed().as_secs_f32(); 
     }
     last_time
+}
+
+fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) { 
+    let mut distances: Vec<Vec<f32>> = vec![];
+    let mut angles: Vec<Vec<Vec<usize>>> = vec![];
+    let mut cache_entries = 0;
+    for (start, start_node) in nodes.iter().enumerate() {
+        distances.push(vec![]);
+        angles.push(vec![]);
+        for (main, main_node) in nodes.iter().enumerate() {
+            distances[start].push(start_node.distance(main_node));
+            angles[start].push(vec![]);
+            for (end, end_node) in nodes.iter().enumerate() {
+                let angle = main_node.angle(start_node, end_node);
+                debug!("Angle between {start}, {main}, {end} : {angle}");
+                if 90f32 <= angle {
+                    angles[start][main].push(end);
+                    cache_entries += 1;
+                }
+            }
+        }
+    }
+    info!("Cache entries count: {}", cache_entries);
+    debug!("Cached entries: {:?}", angles);
+    debug!("Cached distances: {:?}", distances);
+    return (angles, distances);
 }
 
 fn solve(nodes: Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Option<Vec<Node>> {
@@ -291,42 +327,6 @@ fn solve(nodes: Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f3
         return Some(indices_to_nodes(nodes, &shortest)); 
     }
     return None;
-}
-
-fn path_len(path: &Vec<usize>, distances: &Vec<Vec<f32>>) -> f32 {
-    let mut distance: f32 = 0f32;
-    for (i, _node_index) in path.iter().enumerate() {
-        if i < path.len() - 1 {
-            distance += distances[path[i]][path[i + 1]];
-        }
-    }
-    distance
-}
-
-fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) { 
-    let mut distances: Vec<Vec<f32>> = vec![];
-    let mut angles: Vec<Vec<Vec<usize>>> = vec![];
-    let mut cache_entries = 0;
-    for (start, start_node) in nodes.iter().enumerate() {
-        distances.push(vec![]);
-        angles.push(vec![]);
-        for (main, main_node) in nodes.iter().enumerate() {
-            distances[start].push(start_node.distance(main_node));
-            angles[start].push(vec![]);
-            for (end, end_node) in nodes.iter().enumerate() {
-                let angle = main_node.angle(start_node, end_node);
-                debug!("Angle between {start}, {main}, {end} : {angle}");
-                if 90f32 <= angle {
-                    angles[start][main].push(end);
-                    cache_entries += 1;
-                }
-            }
-        }
-    }
-    info!("Cache entries count: {}", cache_entries);
-    debug!("Cached entries: {:?}", angles);
-    debug!("Cached distances: {:?}", distances);
-    return (angles, distances);
 }
 
 fn main() {
