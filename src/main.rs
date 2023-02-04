@@ -105,14 +105,12 @@ fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f3
 
 fn get_tasks(path: Vec<usize>, free: Vec<usize>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
     let mut potential_options: Vec<usize> = angles[path[path.len() - 2]][path[path.len() - 1]].clone();
-    potential_options.retain(|potential_option| {return free.contains(potential_option)});
+    potential_options.retain(|potential_option| {return !path.contains(potential_option)});
     let mut next_tasks: Vec<Task> = vec![]; 
     for node_i in potential_options.iter() {
-        let mut new_free = free.clone();
         let mut new_path = path.clone();
-        new_free.retain(|x| {return x != node_i});
         new_path.push(*node_i);
-        next_tasks.push(Task { path: new_path, free: new_free });
+        next_tasks.push(Task { path: new_path, free: vec![] });
     }
     sort_tasks(&mut next_tasks, &distances, true);
     next_tasks
