@@ -238,31 +238,36 @@ fn indices_to_nodes(nodes: Vec<Node>, indices_path: &Vec<usize>) -> Vec<Node> {
     node_path
 }
 
+fn give_status_info(iteration: i64, timer: Instant, mut last_time: f32) -> f32 {
+    let update_frequency = 1000000;
+    if iteration % update_frequency == 0 {
+        let average_iterations = iteration as f32 / timer.elapsed().as_secs_f32();
+        let update_time = timer.elapsed().as_secs_f32() - last_time;
+        let iterations = update_frequency as f64 / update_time as f64 ;
+        info!("
+            Average iterations per second:  {:?}
+            Iterations per second           {:?}    
+            Time since last update:         {:?}",
+                average_iterations.round() as u32,
+            iterations.round() as u32,
+            update_time);
+        last_time = timer.elapsed().as_secs_f32(); 
+    }
+    last_time
+}
+
 fn solve(nodes: Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Option<Vec<Node>> {
     let mut task_queue: Vec<Task> = generate_start_tasks(&nodes, angles, distances);
-
-    let mut solution_paths: Vec<Vec<usize>> = vec![];
 
     let timer = Instant::now();
     let mut iteration = 0i64;
     let mut last_time = timer.elapsed().as_secs_f32();
-    let update_frequency = 1000000;
+
+    let mut solution_paths: Vec<Vec<usize>> = vec![];
     let mut shortest: Vec<usize> = vec![];
     let mut shortest_length: f32 = MAX;
     while !task_queue.is_empty() {
-        if iteration % update_frequency == 0 {
-            let average_iterations = iteration as f32 / timer.elapsed().as_secs_f32();
-            let update_time = timer.elapsed().as_secs_f32() - last_time;
-            let iterations = update_frequency as f64 / update_time as f64 ;
-            info!("
-                Average iterations per second:  {:?}
-                Iterations per second           {:?}    
-                Time since last update:         {:?}",
-                average_iterations.round() as u32,
-                iterations.round() as u32,
-                update_time);
-            last_time = timer.elapsed().as_secs_f32(); 
-        }
+        last_time = give_status_info(iteration, timer, last_time);
         let task = task_queue.pop().unwrap();
         if task.path.len() == nodes.len() {
             solution_paths.push(task.path.clone());
