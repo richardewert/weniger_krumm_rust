@@ -217,8 +217,6 @@ fn generate_start_tasks(nodes: &Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distan
 
 fn get_tasks(path: Vec<usize>, free: Vec<usize>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
     let mut potential_options: Vec<usize> = angles[path[path.len() - 2]][path[path.len() - 1]].clone();
-    //let main = path[path.len() - 1];
-    //let start = path[path.len() - 2];
     potential_options.retain(|potential_option| {return free.contains(potential_option)});
     let mut next_tasks: Vec<Task> = vec![]; 
     for node_i in potential_options.iter() {
@@ -253,7 +251,6 @@ fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
     let mut shortest: Vec<usize> = vec![];
     let mut shortest_length: f32 = MAX;
     while !task_queue.is_empty() {
-        //debug!("task_queue: {:?}", task_queue);
         if iteration % update_frequency == 0 {
             let average_iterations = iteration as f32 / timer.elapsed().as_secs_f32();
             let update_time = timer.elapsed().as_secs_f32() - last_time;
@@ -292,7 +289,6 @@ fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
     return None;
 }
 
-//TODO fix this
 fn path_len(path: &Vec<usize>, distances: &Vec<Vec<f32>>) -> f32 {
     let mut distance: f32 = 0f32;
     for (i, _node_index) in path.iter().enumerate() {
@@ -331,30 +327,13 @@ fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f3
 
 fn main() {
     env_logger::init();
-    let total_time = Instant::now();
     let nodes = read_nodes();
     
-    let compute_render_time = Instant::now();
     
     let solution: Vec<Node> = match solve(nodes.clone()) {
         Some(x) => x,
         _ => {println!("No solution found."); return;},
     };
 
-    let render_time = Instant::now();
     render(&nodes, &solution);
-    let total = total_time.elapsed().as_micros();
-    info!( "
-=============Time=============
-read: ca. {:?}%
-compute: ca. {:?}%
-render: ca. {:?}%
----------------
-total: {:?} mikro seconds",
-        (total - compute_render_time.elapsed().as_micros()) * 100 / total,
-        (compute_render_time.elapsed().as_micros() -
-        render_time.elapsed().as_micros()) * 100 / total,
-        render_time.elapsed().as_micros() * 100 / total,
-        total
-    );
 }
