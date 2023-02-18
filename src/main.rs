@@ -12,7 +12,8 @@ struct Task {
     path: Vec<usize>,
 }
 
-fn indices_to_nodes(nodes: Vec<Node>, indices_path: &Vec<usize>) -> Vec<Node> {
+fn indices_to_nodes(nodes: Vec<Node>, 
+                    indices_path: &Vec<usize>) -> Vec<Node> {
     let mut node_path: Vec<Node> = vec![];
     for i in indices_path {
         node_path.push(nodes[*i]);
@@ -30,7 +31,9 @@ fn path_len(path: &Vec<usize>, distances: &Vec<Vec<f32>>) -> f32 {
     distance
 }
 
-fn sort_tasks(tasks: &mut Vec<Task>, distances: &Vec<Vec<f32>>, sort_by_last: bool) {
+fn sort_tasks(  tasks: &mut Vec<Task>, 
+                distances: &Vec<Vec<f32>>, 
+                sort_by_last: bool) {
     tasks.sort_by(|a, b| {
         let val_a;
         let val_b;
@@ -52,16 +55,22 @@ fn sort_tasks(tasks: &mut Vec<Task>, distances: &Vec<Vec<f32>>, sort_by_last: bo
 }
 
 //Choose shortest valid path of 3 nodes to begin from.
-fn generate_start_tasks(nodes: &Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
+fn generate_start_tasks(nodes: &Vec<Node>, 
+                        angles: &Vec<Vec<Vec<usize>>>, 
+                        distances: &Vec<Vec<f32>>) -> Vec<Task> {
     let mut tasks: Vec<Task> = vec![];
-    for (first_node_index, second_node_indices) in angles.iter().enumerate() {
-        for (second_node_index, third_node_indices) in second_node_indices.iter().enumerate() {
+    for (first_node_index, second_node_indices) 
+            in angles.iter().enumerate() {
+        for (second_node_index, third_node_indices) 
+                in second_node_indices.iter().enumerate() {
             for valid_third_node_index in third_node_indices.iter() {
                 if first_node_index != second_node_index &&
                     second_node_index != *valid_third_node_index &&
                     first_node_index != *valid_third_node_index 
                 {
-                    let path = vec![first_node_index, second_node_index, *valid_third_node_index];
+                    let path = vec![first_node_index, 
+                                    second_node_index, 
+                                    *valid_third_node_index];
                     let mut free: Vec<usize> = (0..nodes.len()).collect();
                     free.retain(|x| !path.contains(x));
 
@@ -76,7 +85,8 @@ fn generate_start_tasks(nodes: &Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distan
     tasks
 }
 
-fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) { 
+fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, 
+                                                Vec<Vec<f32>>) { 
     let mut distances: Vec<Vec<f32>> = vec![];
     let mut angles: Vec<Vec<Vec<usize>>> = vec![];
     let mut cache_entries = 0;
@@ -102,9 +112,14 @@ fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f3
     return (angles, distances);
 }
 
-fn get_tasks(path: Vec<usize>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
-    let mut potential_options: Vec<usize> = angles[path[path.len() - 2]][path[path.len() - 1]].clone();
-    potential_options.retain(|potential_option| {return !path.contains(potential_option)});
+fn get_tasks(   path: Vec<usize>, 
+                angles: &Vec<Vec<Vec<usize>>>, 
+                distances: &Vec<Vec<f32>>) -> Vec<Task> {
+    let mut potential_options: Vec<usize> = 
+        angles[path[path.len() - 2]][path[path.len() - 1]].clone();
+    potential_options.retain(|potential_option| {
+        return !path.contains(potential_option)
+    });
     let mut next_tasks: Vec<Task> = vec![]; 
     for node_i in potential_options.iter() {
         let mut new_path = path.clone();
@@ -115,7 +130,9 @@ fn get_tasks(path: Vec<usize>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Ve
     next_tasks
 }
 
-fn solve(nodes: Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Option<Vec<Node>> {
+fn solve(   nodes: Vec<Node>, 
+            angles: &Vec<Vec<Vec<usize>>>, 
+            distances: &Vec<Vec<f32>>) -> Option<Vec<Node>> {
     let mut task_queue: Vec<Task> = generate_start_tasks(&nodes, angles, distances);
 
     let timer = Instant::now();
@@ -135,11 +152,13 @@ fn solve(nodes: Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f3
             if shortest_length > new_len {
                 shortest_length = new_len.clone();
                 shortest = new.clone();
-                info!("\nSolution Nr. {:?}: \n    Solution length: {:?} \n    {:?} ", solution_paths.len(), new_len, new);
+                info!("\nSolution Nr. {:?}: \n    Solution length: {:?} \n    {:?} ", 
+                    solution_paths.len(), new_len, new);
                 let node_path = indices_to_nodes(nodes.clone(), &shortest);
                 render(&nodes, &node_path);
             } else {
-                debug!("Solution Nr. {:?}: \nSolution length: {:?} \n{:?} ", solution_paths.len(), new_len, new);
+                debug!("Solution Nr. {:?}: \nSolution length: {:?} \n{:?} ", 
+                    solution_paths.len(), new_len, new);
             }
         }
         let mut tasks = get_tasks(task.path, &angles, &distances);
