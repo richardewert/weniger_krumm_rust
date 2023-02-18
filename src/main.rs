@@ -1,13 +1,13 @@
-use std::{path::Path, f32::MAX};
-use std::io::Read;
-use std::cmp::Ordering;
-use std::fs::File;
-use std::path::PathBuf;
-use std::time::Instant;
 use clap::Parser;
 use draw::*;
-use node_mod::Node;
 use log::{debug, info};
+use node_mod::Node;
+use std::cmp::Ordering;
+use std::fs::File;
+use std::io::Read;
+use std::path::PathBuf;
+use std::time::Instant;
+use std::{f32::MAX, path::Path};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -20,7 +20,7 @@ use log::{debug, info};
 
 struct Args {
     #[arg(short, long)]
-    path: PathBuf
+    path: PathBuf,
 }
 
 pub mod node_mod {
@@ -45,11 +45,11 @@ pub mod node_mod {
             };
         }
 
-        fn sub(&self, other: &Node) -> Node{
+        fn sub(&self, other: &Node) -> Node {
             return Node {
                 x: self.x - other.x,
                 y: self.y - other.y,
-            }
+            };
         }
 
         fn added(&self) -> f32 {
@@ -68,7 +68,8 @@ pub mod node_mod {
             let ankathete = self.distance(one);
             let hypothenuse = self.distance(other);
 
-            let cos_angle = (ankathete.powi(2) + hypothenuse.powi(2) - gegenkathete.powi(2)) / (2f32 * ankathete * hypothenuse);
+            let cos_angle = (ankathete.powi(2) + hypothenuse.powi(2) - gegenkathete.powi(2))
+                / (2f32 * ankathete * hypothenuse);
 
             let angle = acosf(cos_angle);
 
@@ -93,8 +94,8 @@ fn get_input() -> String {
     let args = Args::parse();
 
     let path = Path::new(&args.path);
-    let display = path.display();     
-    
+    let display = path.display();
+
     let mut file = match File::open(&path) {
         Err(why) => panic!("Konnt Pfad nicht öffnen {}: {}", display, why),
         Ok(file) => file,
@@ -105,12 +106,11 @@ fn get_input() -> String {
         Err(why) => panic!("Konnte {} nicht lesen: {}", display, why),
         Ok(_) => return s,
     }
-
 }
 
 fn read_nodes() -> Vec<Node> {
     let input = get_input();
-    
+
     let split_coords = input.split("\n");
     let unsplit_corrds: Vec<&str> = split_coords.collect();
 
@@ -119,7 +119,7 @@ fn read_nodes() -> Vec<Node> {
         if !coord.is_empty() {
             let split = coord.split(" ");
             let vec: Vec<&str> = split.collect();
-            nodes.push(Node{
+            nodes.push(Node {
                 x: vec[0].parse().unwrap(),
                 y: vec[1].parse().unwrap(),
             })
@@ -135,13 +135,11 @@ fn render(nodes: &Vec<Node>, solution: &Vec<Node>) {
     let size_y = 720;
     let mut canvas = Canvas::new(size_x, size_y);
 
-    let center_x = (size_x as f32)/2f32;
-    let center_y = (size_y as f32)/2f32;
+    let center_x = (size_x as f32) / 2f32;
+    let center_y = (size_y as f32) / 2f32;
     for node in nodes.iter() {
         let circle = Drawing::new()
-            .with_shape(Shape::Circle {
-                radius: 5,
-            })
+            .with_shape(Shape::Circle { radius: 5 })
             .with_xy(node.x + center_x, node.y + center_y)
             .with_style(Style::stroked(2, Color::black()));
         canvas.display_list.add(circle);
@@ -150,22 +148,26 @@ fn render(nodes: &Vec<Node>, solution: &Vec<Node>) {
     for i in 0..nodes.len() {
         if i < solution.len() - 1 {
             let matching = solution[i + 1];
-            let color = 255/solution.len()*i;
+            let color = 255 / solution.len() * i;
             let line = Drawing::new()
                 .with_shape(
                     LineBuilder::new(solution[i].x + center_x, solution[i].y + center_y)
-                    .line_to(matching.x + center_x, matching.y + center_y)
-                    .build())
-                .with_style(Style::stroked(2, RGB { r: color as u8, g: 100, b: color as u8 }));
+                        .line_to(matching.x + center_x, matching.y + center_y)
+                        .build(),
+                )
+                .with_style(Style::stroked(
+                    2,
+                    RGB {
+                        r: color as u8,
+                        g: 100,
+                        b: color as u8,
+                    },
+                ));
             canvas.display_list.add(line);
         }
     }
-    
-    render::save(
-        &canvas,
-        "output.svg",
-        SvgRenderer::new(),
-    ).expect("Failed to save");
+
+    render::save(&canvas, "output.svg", SvgRenderer::new()).expect("Failed to save");
     info!("Rendered image");
 }
 
@@ -191,14 +193,18 @@ fn sort_tasks(tasks: &mut Vec<Task>, distances: &Vec<Vec<f32>>, sort_by_last: bo
 }
 
 //Choose shortest valid path of 3 nodes to begin from.
-fn generate_start_tasks(nodes: &Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
+fn generate_start_tasks(
+    nodes: &Vec<Node>,
+    angles: &Vec<Vec<Vec<usize>>>,
+    distances: &Vec<Vec<f32>>,
+) -> Vec<Task> {
     let mut tasks: Vec<Task> = vec![];
     for (first_node_index, second_node_indices) in angles.iter().enumerate() {
         for (second_node_index, third_node_indices) in second_node_indices.iter().enumerate() {
             for valid_third_node_index in third_node_indices.iter() {
-                if first_node_index != second_node_index &&
-                    second_node_index != *valid_third_node_index &&
-                    first_node_index != *valid_third_node_index 
+                if first_node_index != second_node_index
+                    && second_node_index != *valid_third_node_index
+                    && first_node_index != *valid_third_node_index
                 {
                     let path = vec![first_node_index, second_node_index, *valid_third_node_index];
                     let mut free: Vec<usize> = (0..nodes.len()).collect();
@@ -215,18 +221,27 @@ fn generate_start_tasks(nodes: &Vec<Node>, angles: &Vec<Vec<Vec<usize>>>, distan
     tasks
 }
 
-fn get_tasks(path: Vec<usize>, free: Vec<usize>, angles: &Vec<Vec<Vec<usize>>>, distances: &Vec<Vec<f32>>) -> Vec<Task> {
-    let mut potential_options: Vec<usize> = angles[path[path.len() - 2]][path[path.len() - 1]].clone();
+fn get_tasks(
+    path: Vec<usize>,
+    free: Vec<usize>,
+    angles: &Vec<Vec<Vec<usize>>>,
+    distances: &Vec<Vec<f32>>,
+) -> Vec<Task> {
+    let mut potential_options: Vec<usize> =
+        angles[path[path.len() - 2]][path[path.len() - 1]].clone();
     //let main = path[path.len() - 1];
     //let start = path[path.len() - 2];
-    potential_options.retain(|potential_option| {return free.contains(potential_option)});
-    let mut next_tasks: Vec<Task> = vec![]; 
+    potential_options.retain(|potential_option| return free.contains(potential_option));
+    let mut next_tasks: Vec<Task> = vec![];
     for node_i in potential_options.iter() {
         let mut new_free = free.clone();
         let mut new_path = path.clone();
-        new_free.retain(|x| {return x != node_i});
+        new_free.retain(|x| return x != node_i);
         new_path.push(*node_i);
-        next_tasks.push(Task { path: new_path, free: new_free });
+        next_tasks.push(Task {
+            path: new_path,
+            free: new_free,
+        });
     }
     sort_tasks(&mut next_tasks, &distances, true);
     next_tasks
@@ -257,15 +272,17 @@ fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
         if iteration % update_frequency == 0 {
             let average_iterations = iteration as f32 / timer.elapsed().as_secs_f32();
             let update_time = timer.elapsed().as_secs_f32() - last_time;
-            let iterations = update_frequency as f64 / update_time as f64 ;
-            info!("
+            let iterations = update_frequency as f64 / update_time as f64;
+            info!(
+                "
                 Average iterations per second:  {:?}
                 Iterations per second           {:?}    
                 Time since last update:         {:?}",
                 average_iterations.round() as u32,
                 iterations.round() as u32,
-                update_time);
-            last_time = timer.elapsed().as_secs_f32(); 
+                update_time
+            );
+            last_time = timer.elapsed().as_secs_f32();
         }
         let task = task_queue.pop().unwrap();
         if task.path.len() == nodes.len() {
@@ -275,11 +292,21 @@ fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
             if shortest_length > new_len {
                 shortest_length = new_len.clone();
                 shortest = new.clone();
-                info!("\nSolution Nr. {:?}: \n    Solution length: {:?} \n    {:?} ", solution_paths.len(), new_len, new);
+                info!(
+                    "\nSolution Nr. {:?}: \n    Solution length: {:?} \n    {:?} ",
+                    solution_paths.len(),
+                    new_len,
+                    new
+                );
                 let node_path = indices_to_nodes(nodes.clone(), &shortest);
                 render(&nodes, &node_path);
             } else {
-                debug!("Solution Nr. {:?}: \nSolution length: {:?} \n{:?} ", solution_paths.len(), new_len, new);
+                debug!(
+                    "Solution Nr. {:?}: \nSolution length: {:?} \n{:?} ",
+                    solution_paths.len(),
+                    new_len,
+                    new
+                );
             }
         }
         let mut tasks = get_tasks(task.path, task.free, &angles, &distances);
@@ -287,7 +314,7 @@ fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
         iteration += 1;
     }
     if !solution_paths.is_empty() {
-        return Some(indices_to_nodes(nodes, &shortest)); 
+        return Some(indices_to_nodes(nodes, &shortest));
     }
     return None;
 }
@@ -303,7 +330,7 @@ fn path_len(path: &Vec<usize>, distances: &Vec<Vec<f32>>) -> f32 {
     distance
 }
 
-fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) { 
+fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) {
     let mut distances: Vec<Vec<f32>> = vec![];
     let mut angles: Vec<Vec<Vec<usize>>> = vec![];
     let mut cache_entries = 0;
@@ -333,18 +360,22 @@ fn main() {
     env_logger::init();
     let total_time = Instant::now();
     let nodes = read_nodes();
-    
+
     let compute_render_time = Instant::now();
-    
+
     let solution: Vec<Node> = match solve(nodes.clone()) {
         Some(x) => x,
-        _ => {println!("No solution found."); return;},
+        _ => {
+            println!("No solution found.");
+            return;
+        }
     };
 
     let render_time = Instant::now();
     render(&nodes, &solution);
     let total = total_time.elapsed().as_micros();
-    info!( "
+    info!(
+        "
 =============Time=============
 read: ca. {:?}%
 compute: ca. {:?}%
@@ -352,8 +383,8 @@ render: ca. {:?}%
 ---------------
 total: {:?} mikro seconds",
         (total - compute_render_time.elapsed().as_micros()) * 100 / total,
-        (compute_render_time.elapsed().as_micros() -
-        render_time.elapsed().as_micros()) * 100 / total,
+        (compute_render_time.elapsed().as_micros() - render_time.elapsed().as_micros()) * 100
+            / total,
         render_time.elapsed().as_micros() * 100 / total,
         total
     );
