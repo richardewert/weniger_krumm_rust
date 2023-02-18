@@ -1,4 +1,5 @@
-use std::f32::MAX;
+use std::thread;
+use std::{f32::MAX, thread::Thread};
 use std::time::Instant;
 use std::cmp::Ordering;
 mod input_output_mod;
@@ -118,34 +119,39 @@ fn get_tasks(path: Vec<usize>, free: Vec<usize>, angles: &Vec<Vec<Vec<bool>>>, d
 
 fn solve(nodes: Vec<Node>, angles: &Vec<Vec<Vec<bool>>>, distances: &Vec<Vec<f32>>) -> Option<Vec<Node>> {
     let mut task_queue: Vec<Task> = generate_start_tasks(&nodes, angles, distances);
+    let mut handles = vec![];
 
-    let mut solution_paths: Vec<Vec<usize>> = vec![];
-    let mut shortest: Vec<usize> = vec![];
-    let mut shortest_length: Arc<Mutex<f32>> = ;
+    let mut shortest: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(vec![]));
+    let mut shortest_length: Arc<Mutex<f32>> = Arc::new(Mutex::new(MAX));
     for i in 0..10 {
-        let timer = Instant::now();
-        let mut iteration = 0i64;
-        let mut last_time = timer.elapsed().as_secs_f32();
-        while !task_queue.is_empty() {
-            last_time = give_status_info(iteration, timer, last_time);
-            let task = task_queue.pop().unwrap();
-            if task.path.len() == nodes.len() {
-                solution_paths.push(task.path.clone());
-                let new = solution_paths.last().unwrap();
-                let new_len = path_len(new, distances);
-                if shortest_length > new_len {
-                    shortest_length = new_len.clone();
-                    shortest = new.clone();
-                    info!("\nSolution Nr. {:?}: \n    Solution length: {:?} \n    {:?} ", solution_paths.len(), new_len, new);
-                    let node_path = indices_to_nodes(nodes.clone(), &shortest);
-                    render(&nodes, &node_path);
-                } else {
-                    debug!("Solution Nr. {:?}: \nSolution length: {:?} \n{:?} ", solution_paths.len(), new_len, new);
+        let handle = thread::spawn( | | { 
+            let mut solution_paths: Vec<Vec<usize>> = vec![];
+
+            let timer = Instant::now();
+            let mut iteration = 0i64;
+            let mut last_time = timer.elapsed().as_secs_f32();
+            while !task_queue.is_empty() {
+                last_time = give_status_info(iteration, timer, last_time);
+                let task = task_queue.pop().unwrap();
+                if task.path.len() == nodes.len() {
+                    solution_paths.push(task.path.clone());
+                    let new = solution_paths.last().unwrap();
+                    let new_len = path_len(new, distances);
+                    if shortest_length > new_len {
+                       shortest_length = new_len.clone();
+                       shortest = new.clone();
+                       info!("\nSolution Nr. {:?}: \n    Solution length: {:?} \n    {:?} ", solution_paths.len(), new_len, new);
+                       let node_path = indices_to_nodes(nodes.clone(), &shortest);
+                       render(&nodes, &node_path);
+                    } else {
+                       debug!("Solution Nr. {:?}: \nSolution length: {:?} \n{:?} ", solution_paths.len(), new_len, new);
+                    }
                 }
+                let mut tasks = get_tasks(task.path, task.free, &angles, &distances);
+                task_queue.append(&mut tasks);
+                iteration += 1;
             }
-            let mut tasks = get_tasks(task.path, task.free, &angles, &distances);
-            task_queue.append(&mut tasks);
-            iteration += 1;
+        );
         }
     }
     if !solution_paths.is_empty() {
