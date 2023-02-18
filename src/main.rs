@@ -152,7 +152,7 @@ fn solve(   nodes: Vec<Node>,
             if shortest_length > new_len {
                 shortest_length = new_len.clone();
                 shortest = new.clone();
-                info!("\nSolution Nr. {:?}: \n    Solution length: {:?} \n    {:?} ", 
+                info!("\nSolution Nr. {:?}:\n    Solution length: {:?}\n    {:?} ", 
                     solution_paths.len(), new_len, new);
                 let node_path = indices_to_nodes(nodes.clone(), &shortest);
                 render(&nodes, &node_path);
@@ -174,6 +174,7 @@ fn solve(   nodes: Vec<Node>,
 fn main() {
     env_logger::init();
     let nodes = read_nodes(); 
+    println!("started");
 
     let (angles, distances) = calc_angles_distances(&nodes);
     let solution: Vec<Node> = match solve(nodes.clone(), &angles, &distances) {
