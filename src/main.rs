@@ -1,12 +1,12 @@
-mod node_mod;
 mod input_output_mod;
+mod node_mod;
 
-use input_output_mod::{render, read_nodes};
-use std::f32::MAX;
+use input_output_mod::{read_nodes, render};
+use log::{debug, info};
 use node_mod::Node;
 use std::cmp::Ordering;
+use std::f32::MAX;
 use std::time::Instant;
-use log::{debug, info};
 
 #[derive(Debug, Clone)]
 struct Task {
@@ -14,8 +14,7 @@ struct Task {
     free: Vec<usize>,
 }
 
-
-fn path_len(path: &Vec<usize>, distances: &Vec<Vec<f32>>) -> f32 {
+fn path_len(path: &Vec<usize>, distances: &[Vec<f32>]) -> f32 {
     let mut distance: f32 = 0f32;
     for (i, _node_index) in path.iter().enumerate() {
         if i < path.len() - 1 {
@@ -25,7 +24,7 @@ fn path_len(path: &Vec<usize>, distances: &Vec<Vec<f32>>) -> f32 {
     distance
 }
 
-fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) {
+fn calc_angles_distances(nodes: &[Node]) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) {
     let mut distances: Vec<Vec<f32>> = vec![];
     let mut angles: Vec<Vec<Vec<usize>>> = vec![];
     let mut cache_entries = 0;
@@ -48,10 +47,10 @@ fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f3
     info!("Cache entries count: {}", cache_entries);
     debug!("Cached entries: {:?}", angles);
     debug!("Cached distances: {:?}", distances);
-    return (angles, distances);
+    (angles, distances)
 }
 
-fn sort_tasks(tasks: &mut Vec<Task>, distances: &Vec<Vec<f32>>, sort_by_last: bool) {
+fn sort_tasks(tasks: &mut [Task], distances: &[Vec<f32>], sort_by_last: bool) {
     tasks.sort_by(|a, b| {
         let val_a;
         let val_b;
@@ -63,11 +62,11 @@ fn sort_tasks(tasks: &mut Vec<Task>, distances: &Vec<Vec<f32>>, sort_by_last: bo
             val_b = path_len(&b.path, distances);
         }
         if val_a > val_b {
-            return Ordering::Less;
+            Ordering::Less
         } else if val_a == val_b {
-            return Ordering::Equal;
+            Ordering::Equal
         } else {
-            return Ordering::Greater;
+            Ordering::Greater
         }
     });
 }
@@ -75,8 +74,8 @@ fn sort_tasks(tasks: &mut Vec<Task>, distances: &Vec<Vec<f32>>, sort_by_last: bo
 //Choose shortest valid path of 3 nodes to begin from.
 fn generate_start_tasks(
     nodes: &Vec<Node>,
-    angles: &Vec<Vec<Vec<usize>>>,
-    distances: &Vec<Vec<f32>>,
+    angles: &[Vec<Vec<usize>>],
+    distances: &[Vec<f32>],
 ) -> Vec<Task> {
     let mut tasks: Vec<Task> = vec![];
     for (first_node_index, second_node_indices) in angles.iter().enumerate() {
@@ -95,7 +94,7 @@ fn generate_start_tasks(
             }
         }
     }
-    sort_tasks(&mut tasks, &distances, false);
+    sort_tasks(&mut tasks, distances, false);
     info!("Generated {} start tasks", tasks.len());
     debug!("Start tasks: {:?}", tasks);
     tasks
@@ -104,25 +103,25 @@ fn generate_start_tasks(
 fn get_tasks(
     path: Vec<usize>,
     free: Vec<usize>,
-    angles: &Vec<Vec<Vec<usize>>>,
-    distances: &Vec<Vec<f32>>,
+    angles: &[Vec<Vec<usize>>],
+    distances: &[Vec<f32>],
 ) -> Vec<Task> {
     let mut potential_options: Vec<usize> =
         angles[path[path.len() - 2]][path[path.len() - 1]].clone();
 
-    potential_options.retain(|potential_option| return free.contains(potential_option));
+    potential_options.retain(|potential_option| free.contains(potential_option));
     let mut next_tasks: Vec<Task> = vec![];
     for node_i in potential_options.iter() {
         let mut new_free = free.clone();
         let mut new_path = path.clone();
-        new_free.retain(|x| return x != node_i);
+        new_free.retain(|x| x != node_i);
         new_path.push(*node_i);
         next_tasks.push(Task {
             path: new_path,
             free: new_free,
         });
     }
-    sort_tasks(&mut next_tasks, &distances, true);
+    sort_tasks(&mut next_tasks, distances, true);
     next_tasks
 }
 
@@ -169,7 +168,7 @@ fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
             let new = solution_paths.last().unwrap();
             let new_len = path_len(new, &distances);
             if shortest_length > new_len {
-                shortest_length = new_len.clone();
+                shortest_length = new_len;
                 shortest = new.clone();
                 info!(
                     "\nSolution Nr. {:?}: \n    Solution length: {:?} \n    {:?} ",
@@ -193,11 +192,11 @@ fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
         iteration += 1;
     }
     if !solution_paths.is_empty() {
-        return Some(indices_to_nodes(nodes, &shortest));
+        Some(indices_to_nodes(nodes, &shortest))
+    } else {
+        None
     }
-    return None;
 }
-
 
 fn main() {
     env_logger::init();

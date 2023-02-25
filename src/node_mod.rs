@@ -9,32 +9,32 @@ pub struct Node {
 
 impl Node {
     pub fn _eq(&self, other: &Node) -> bool {
-        return self.x == other.x && self.y == other.y;
+         self.x == other.x && self.y == other.y
     }
 
     fn pow(&self, pow: i32) -> Node {
-        return Node {
+        Node {
             x: self.x.powi(pow),
             y: self.y.powi(pow),
-        };
+        }
     }
 
     fn sub(&self, other: &Node) -> Node {
-        return Node {
+        Node {
             x: self.x - other.x,
             y: self.y - other.y,
-        };
+        }
     }
 
     fn added(&self) -> f32 {
-        return self.x + self.y;
+        self.x + self.y
     }
 
     pub fn distance(&self, other: &Node) -> f32 {
         let mut val = self.sub(other);
         val = val.pow(2);
         let distance = val.added();
-        return distance.sqrt();
+        distance.sqrt()
     }
 
     pub fn angle(&self, one: &Node, other: &Node) -> f32 {
@@ -53,7 +53,6 @@ impl Node {
     }
 
     pub fn _make_key(&self) -> (i32, i32) {
-        return (self.x as i32, self.y as i32);
+        (self.x as i32, self.y as i32)
     }
 }
-

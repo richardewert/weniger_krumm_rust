@@ -1,19 +1,18 @@
 use crate::Node;
 use clap::Parser;
-use std::fs::File;
-use std::io::Read;
-use std::path::PathBuf;
-use std::path::Path;
 use draw::*;
 use log::{debug, info};
+use std::fs::File;
+use std::io::Read;
+use std::path::Path;
+use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(
     author = "Richard Ewert",
     version,
-    about = None, 
-    long_about = 
-        "Lösung zur Aufgabe 1, der zweiten Runde des 41. Bundeswettbewerb Informatik `Weniger Krumme Touren` von Richard Ewert"
+    about = None,
+    long_about = "Lösung zur Aufgabe 1, der zweiten Runde des 41. Bundeswettbewerb Informatik `Weniger Krumme Touren` von Richard Ewert",
 )]
 
 struct Args {
@@ -27,7 +26,7 @@ pub fn get_input() -> String {
     let path = Path::new(&args.path);
     let display = path.display();
 
-    let mut file = match File::open(&path) {
+    let mut file = match File::open(path) {
         Err(why) => panic!("Konnt Pfad nicht öffnen {}: {}", display, why),
         Ok(file) => file,
     };
@@ -35,20 +34,20 @@ pub fn get_input() -> String {
     let mut s = String::new();
     match file.read_to_string(&mut s) {
         Err(why) => panic!("Konnte {} nicht lesen: {}", display, why),
-        Ok(_) => return s,
+        Ok(_) => s,
     }
 }
 
 pub fn read_nodes() -> Vec<Node> {
     let input = get_input();
 
-    let split_coords = input.split("\n");
+    let split_coords = input.split('\n');
     let unsplit_corrds: Vec<&str> = split_coords.collect();
 
     let mut nodes: Vec<Node> = vec![];
     for coord in unsplit_corrds.iter() {
         if !coord.is_empty() {
-            let split = coord.split(" ");
+            let split = coord.split(' ');
             let vec: Vec<&str> = split.collect();
             nodes.push(Node {
                 x: vec[0].parse().unwrap(),
@@ -81,7 +80,7 @@ pub fn render(nodes: &Vec<Node>, solution: &Vec<Node>) {
             let matching = solution[i + 1];
             let color = 255 / solution.len() * i;
             let line = Drawing::new()
-                .with_shape(
+                .with_shape( 
                     LineBuilder::new(solution[i].x + center_x, solution[i].y + center_y)
                         .line_to(matching.x + center_x, matching.y + center_y)
                         .build(),
