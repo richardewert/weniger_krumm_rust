@@ -24,7 +24,8 @@ fn path_len(path: &Vec<usize>, distances: &[Vec<f32>]) -> f32 {
     distance
 }
 
-fn calc_angles_distances(nodes: &[Node]) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) {
+fn calc_angles_distances(nodes: &[Node]) -> 
+        (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) {
     let mut distances: Vec<Vec<f32>> = vec![];
     let mut angles: Vec<Vec<Vec<usize>>> = vec![];
     let mut cache_entries = 0;
@@ -78,14 +79,21 @@ fn generate_start_tasks(
     distances: &[Vec<f32>],
 ) -> Vec<Task> {
     let mut tasks: Vec<Task> = vec![];
-    for (first_node_index, second_node_indices) in angles.iter().enumerate() {
-        for (second_node_index, third_node_indices) in second_node_indices.iter().enumerate() {
-            for valid_third_node_index in third_node_indices.iter() {
+    for (first_node_index, second_node_indices) in 
+            angles.iter().enumerate() {
+        for (second_node_index, third_node_indices) in 
+                second_node_indices.iter().enumerate() {
+            for valid_third_node_index in 
+                    third_node_indices.iter() {
                 if first_node_index != second_node_index
                     && second_node_index != *valid_third_node_index
                     && first_node_index != *valid_third_node_index
                 {
-                    let path = vec![first_node_index, second_node_index, *valid_third_node_index];
+                    let path = vec![
+                        first_node_index, 
+                        second_node_index, 
+                        *valid_third_node_index
+                    ];
                     let mut free: Vec<usize> = (0..nodes.len()).collect();
                     free.retain(|x| !path.contains(x));
 
@@ -109,7 +117,9 @@ fn get_tasks(
     let mut potential_options: Vec<usize> =
         angles[path[path.len() - 2]][path[path.len() - 1]].clone();
 
-    potential_options.retain(|potential_option| free.contains(potential_option));
+    potential_options.retain(
+        |potential_option| free.contains(potential_option)
+    );
     let mut next_tasks: Vec<Task> = vec![];
     for node_i in potential_options.iter() {
         let mut new_free = free.clone();
@@ -125,7 +135,9 @@ fn get_tasks(
     next_tasks
 }
 
-fn indices_to_nodes(nodes: Vec<Node>, indices_path: &Vec<usize>) -> Vec<Node> {
+fn indices_to_nodes(
+        nodes: Vec<Node>, 
+        indices_path: &Vec<usize>) -> Vec<Node> {
     let mut node_path: Vec<Node> = vec![];
     for i in indices_path {
         node_path.push(nodes[*i]);
@@ -134,8 +146,11 @@ fn indices_to_nodes(nodes: Vec<Node>, indices_path: &Vec<usize>) -> Vec<Node> {
 }
 
 fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
-    let (angles, distances) = calc_angles_distances(&nodes);
-    let mut task_queue: Vec<Task> = generate_start_tasks(&nodes, &angles, &distances);
+    let (angles, distances) = 
+        calc_angles_distances(&nodes);
+
+    let mut task_queue: Vec<Task> = 
+        generate_start_tasks(&nodes, &angles, &distances);
 
     let mut solution_paths: Vec<Vec<usize>> = vec![];
 
@@ -145,12 +160,19 @@ fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
     let update_frequency = 1000000;
     let mut shortest: Vec<usize> = vec![];
     let mut shortest_length: f32 = MAX;
+
     while !task_queue.is_empty() {
         //debug!("task_queue: {:?}", task_queue);
         if iteration % update_frequency == 0 {
-            let average_iterations = iteration as f32 / timer.elapsed().as_secs_f32();
-            let update_time = timer.elapsed().as_secs_f32() - last_time;
-            let iterations = update_frequency as f64 / update_time as f64;
+            let average_iterations = 
+                iteration as f32 / timer.elapsed().as_secs_f32();
+
+            let update_time = 
+                timer.elapsed().as_secs_f32() - last_time;
+
+            let iterations = 
+                update_frequency as f64 / update_time as f64;
+
             info!(
                 "
                 Average iterations per second:  {:?}
@@ -162,6 +184,7 @@ fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
             );
             last_time = timer.elapsed().as_secs_f32();
         }
+
         let task = task_queue.pop().unwrap();
         if task.path.len() == nodes.len() {
             solution_paths.push(task.path.clone());
@@ -170,12 +193,14 @@ fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
             if shortest_length > new_len {
                 shortest_length = new_len;
                 shortest = new.clone();
+
                 info!(
-                    "\nSolution Nr. {:?}: \n    Solution length: {:?} \n    {:?} ",
+                    "\nSolution Nr. {:?}:\n    Solution length: {:?}\n    {:?}",
                     solution_paths.len(),
                     new_len,
                     new
                 );
+
                 let node_path = indices_to_nodes(nodes.clone(), &shortest);
                 render(&nodes, &node_path);
             } else {
@@ -216,18 +241,20 @@ fn main() {
     let render_time = Instant::now();
     render(&nodes, &solution);
     let total = total_time.elapsed().as_micros();
-    info!(
-        "
+
+    info!("
 =============Time=============
 read: ca. {:?}%
 compute: ca. {:?}%
 render: ca. {:?}%
 ---------------
 total: {:?} mikro seconds",
-        (total - compute_render_time.elapsed().as_micros()) * 100 / total,
-        (compute_render_time.elapsed().as_micros() - render_time.elapsed().as_micros()) * 100
-            / total,
-        render_time.elapsed().as_micros() * 100 / total,
+        (total - compute_render_time.elapsed().as_micros()) 
+            * 100 / total,
+        (compute_render_time.elapsed().as_micros() - render_time.elapsed().as_micros()) 
+            * 100 / total,
+        render_time.elapsed().as_micros() 
+            * 100 / total,
         total
     );
 }
