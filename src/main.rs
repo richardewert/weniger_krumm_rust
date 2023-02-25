@@ -1,88 +1,12 @@
-use clap::Parser;
-use draw::*;
-use log::{debug, info};
+mod node_mod;
+mod input_output_mod;
+
+use input_output_mod::{render, read_nodes};
+use std::f32::MAX;
 use node_mod::Node;
 use std::cmp::Ordering;
-use std::fs::File;
-use std::io::Read;
-use std::path::PathBuf;
 use std::time::Instant;
-use std::{f32::MAX, path::Path};
-
-#[derive(Parser, Debug)]
-#[command(
-    author = "Richard Ewert",
-    version,
-    about = None, 
-    long_about = 
-        "Lösung zur Aufgabe 1, der zweiten Runde des 41. Bundeswettbewerb Informatik `Weniger Krumme Touren` von Richard Ewert"
-)]
-
-struct Args {
-    #[arg(short, long)]
-    path: PathBuf,
-}
-
-pub mod node_mod {
-    use libm::acosf;
-    use std::f32::consts::PI;
-
-    #[derive(Copy, Clone, Debug)]
-    pub struct Node {
-        pub x: f32,
-        pub y: f32,
-    }
-
-    impl Node {
-        pub fn eq(&self, other: &Node) -> bool {
-            return self.x == other.x && self.y == other.y;
-        }
-
-        fn pow(&self, pow: i32) -> Node {
-            return Node {
-                x: self.x.powi(pow),
-                y: self.y.powi(pow),
-            };
-        }
-
-        fn sub(&self, other: &Node) -> Node {
-            return Node {
-                x: self.x - other.x,
-                y: self.y - other.y,
-            };
-        }
-
-        fn added(&self) -> f32 {
-            return self.x + self.y;
-        }
-
-        pub fn distance(&self, other: &Node) -> f32 {
-            let mut val = self.sub(other);
-            val = val.pow(2);
-            let distance = val.added();
-            return distance.sqrt();
-        }
-
-        pub fn angle(&self, one: &Node, other: &Node) -> f32 {
-            let gegenkathete = one.distance(other);
-            let ankathete = self.distance(one);
-            let hypothenuse = self.distance(other);
-
-            let cos_angle = (ankathete.powi(2) + hypothenuse.powi(2) - gegenkathete.powi(2))
-                / (2f32 * ankathete * hypothenuse);
-
-            let angle = acosf(cos_angle);
-
-            let angle_degrees: f32 = angle * 180f32 / PI;
-
-            angle_degrees
-        }
-
-        pub fn make_key(&self) -> (i32, i32) {
-            return (self.x as i32, self.y as i32);
-        }
-    }
-}
+use log::{debug, info};
 
 #[derive(Debug, Clone)]
 struct Task {
@@ -90,85 +14,41 @@ struct Task {
     free: Vec<usize>,
 }
 
-fn get_input() -> String {
-    let args = Args::parse();
 
-    let path = Path::new(&args.path);
-    let display = path.display();
-
-    let mut file = match File::open(&path) {
-        Err(why) => panic!("Konnt Pfad nicht öffnen {}: {}", display, why),
-        Ok(file) => file,
-    };
-
-    let mut s = String::new();
-    match file.read_to_string(&mut s) {
-        Err(why) => panic!("Konnte {} nicht lesen: {}", display, why),
-        Ok(_) => return s,
-    }
-}
-
-fn read_nodes() -> Vec<Node> {
-    let input = get_input();
-
-    let split_coords = input.split("\n");
-    let unsplit_corrds: Vec<&str> = split_coords.collect();
-
-    let mut nodes: Vec<Node> = vec![];
-    for coord in unsplit_corrds.iter() {
-        if !coord.is_empty() {
-            let split = coord.split(" ");
-            let vec: Vec<&str> = split.collect();
-            nodes.push(Node {
-                x: vec[0].parse().unwrap(),
-                y: vec[1].parse().unwrap(),
-            })
+fn path_len(path: &Vec<usize>, distances: &Vec<Vec<f32>>) -> f32 {
+    let mut distance: f32 = 0f32;
+    for (i, _node_index) in path.iter().enumerate() {
+        if i < path.len() - 1 {
+            distance += distances[path[i]][path[i + 1]];
         }
     }
-    info!("Loaded {} nodes", nodes.len());
-    debug!("Loaded nodes:\n{:?}", nodes);
-    nodes
+    distance
 }
 
-fn render(nodes: &Vec<Node>, solution: &Vec<Node>) {
-    let size_x = 1080;
-    let size_y = 720;
-    let mut canvas = Canvas::new(size_x, size_y);
-
-    let center_x = (size_x as f32) / 2f32;
-    let center_y = (size_y as f32) / 2f32;
-    for node in nodes.iter() {
-        let circle = Drawing::new()
-            .with_shape(Shape::Circle { radius: 5 })
-            .with_xy(node.x + center_x, node.y + center_y)
-            .with_style(Style::stroked(2, Color::black()));
-        canvas.display_list.add(circle);
-    }
-
-    for i in 0..nodes.len() {
-        if i < solution.len() - 1 {
-            let matching = solution[i + 1];
-            let color = 255 / solution.len() * i;
-            let line = Drawing::new()
-                .with_shape(
-                    LineBuilder::new(solution[i].x + center_x, solution[i].y + center_y)
-                        .line_to(matching.x + center_x, matching.y + center_y)
-                        .build(),
-                )
-                .with_style(Style::stroked(
-                    2,
-                    RGB {
-                        r: color as u8,
-                        g: 100,
-                        b: color as u8,
-                    },
-                ));
-            canvas.display_list.add(line);
+fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) {
+    let mut distances: Vec<Vec<f32>> = vec![];
+    let mut angles: Vec<Vec<Vec<usize>>> = vec![];
+    let mut cache_entries = 0;
+    for (start, start_node) in nodes.iter().enumerate() {
+        distances.push(vec![]);
+        angles.push(vec![]);
+        for (main, main_node) in nodes.iter().enumerate() {
+            distances[start].push(start_node.distance(main_node));
+            angles[start].push(vec![]);
+            for (end, end_node) in nodes.iter().enumerate() {
+                let angle = main_node.angle(start_node, end_node);
+                debug!("Angle between {start}, {main}, {end} : {angle}");
+                if 90f32 <= angle {
+                    angles[start][main].push(end);
+                    cache_entries += 1;
+                }
+            }
         }
     }
-
-    render::save(&canvas, "output.svg", SvgRenderer::new()).expect("Failed to save");
-    info!("Rendered image");
+    info!("Cache entries count: {}", cache_entries);
+    debug!("Cached entries: {:?}", angles);
+    debug!("Cached distances: {:?}", distances);
+    return (angles, distances);
 }
 
 fn sort_tasks(tasks: &mut Vec<Task>, distances: &Vec<Vec<f32>>, sort_by_last: bool) {
@@ -229,8 +109,7 @@ fn get_tasks(
 ) -> Vec<Task> {
     let mut potential_options: Vec<usize> =
         angles[path[path.len() - 2]][path[path.len() - 1]].clone();
-    //let main = path[path.len() - 1];
-    //let start = path[path.len() - 2];
+
     potential_options.retain(|potential_option| return free.contains(potential_option));
     let mut next_tasks: Vec<Task> = vec![];
     for node_i in potential_options.iter() {
@@ -319,42 +198,6 @@ fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
     return None;
 }
 
-//TODO fix this
-fn path_len(path: &Vec<usize>, distances: &Vec<Vec<f32>>) -> f32 {
-    let mut distance: f32 = 0f32;
-    for (i, _node_index) in path.iter().enumerate() {
-        if i < path.len() - 1 {
-            distance += distances[path[i]][path[i + 1]];
-        }
-    }
-    distance
-}
-
-fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) {
-    let mut distances: Vec<Vec<f32>> = vec![];
-    let mut angles: Vec<Vec<Vec<usize>>> = vec![];
-    let mut cache_entries = 0;
-    for (start, start_node) in nodes.iter().enumerate() {
-        distances.push(vec![]);
-        angles.push(vec![]);
-        for (main, main_node) in nodes.iter().enumerate() {
-            distances[start].push(start_node.distance(main_node));
-            angles[start].push(vec![]);
-            for (end, end_node) in nodes.iter().enumerate() {
-                let angle = main_node.angle(start_node, end_node);
-                debug!("Angle between {start}, {main}, {end} : {angle}");
-                if 90f32 <= angle {
-                    angles[start][main].push(end);
-                    cache_entries += 1;
-                }
-            }
-        }
-    }
-    info!("Cache entries count: {}", cache_entries);
-    debug!("Cached entries: {:?}", angles);
-    debug!("Cached distances: {:?}", distances);
-    return (angles, distances);
-}
 
 fn main() {
     env_logger::init();
