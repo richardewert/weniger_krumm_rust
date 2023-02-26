@@ -14,7 +14,7 @@ struct Task {
     free: Vec<usize>,
 }
 
-fn path_len(path: &Vec<usize>, distances: &[Vec<f32>]) -> f32 {
+fn path_len(path: &Vec<usize>, distances: &Vec<Vec<f32>>) -> f32 {
     let mut distance: f32 = 0f32;
     for (i, _node_index) in path.iter().enumerate() {
         if i < path.len() - 1 {
@@ -24,8 +24,7 @@ fn path_len(path: &Vec<usize>, distances: &[Vec<f32>]) -> f32 {
     distance
 }
 
-fn calc_angles_distances(nodes: &[Node]) -> 
-        (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) {
+fn calc_angles_distances(nodes: &Vec<Node>) -> (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) {
     let mut distances: Vec<Vec<f32>> = vec![];
     let mut angles: Vec<Vec<Vec<usize>>> = vec![];
     let mut cache_entries = 0;
@@ -48,10 +47,10 @@ fn calc_angles_distances(nodes: &[Node]) ->
     info!("Cache entries count: {}", cache_entries);
     debug!("Cached entries: {:?}", angles);
     debug!("Cached distances: {:?}", distances);
-    (angles, distances)
+    return (angles, distances);
 }
 
-fn sort_tasks(tasks: &mut [Task], distances: &[Vec<f32>], sort_by_last: bool) {
+fn sort_tasks(tasks: &mut Vec<Task>, distances: &Vec<Vec<f32>>, sort_by_last: bool) {
     tasks.sort_by(|a, b| {
         let val_a;
         let val_b;
@@ -63,11 +62,11 @@ fn sort_tasks(tasks: &mut [Task], distances: &[Vec<f32>], sort_by_last: bool) {
             val_b = path_len(&b.path, distances);
         }
         if val_a > val_b {
-            Ordering::Less
+            return Ordering::Less;
         } else if val_a == val_b {
-            Ordering::Equal
+            return Ordering::Equal;
         } else {
-            Ordering::Greater
+            return Ordering::Greater;
         }
     });
 }
@@ -75,25 +74,18 @@ fn sort_tasks(tasks: &mut [Task], distances: &[Vec<f32>], sort_by_last: bool) {
 //Choose shortest valid path of 3 nodes to begin from.
 fn generate_start_tasks(
     nodes: &Vec<Node>,
-    angles: &[Vec<Vec<usize>>],
-    distances: &[Vec<f32>],
+    angles: &Vec<Vec<Vec<usize>>>,
+    distances: &Vec<Vec<f32>>,
 ) -> Vec<Task> {
     let mut tasks: Vec<Task> = vec![];
-    for (first_node_index, second_node_indices) in 
-            angles.iter().enumerate() {
-        for (second_node_index, third_node_indices) in 
-                second_node_indices.iter().enumerate() {
-            for valid_third_node_index in 
-                    third_node_indices.iter() {
+    for (first_node_index, second_node_indices) in angles.iter().enumerate() {
+        for (second_node_index, third_node_indices) in second_node_indices.iter().enumerate() {
+            for valid_third_node_index in third_node_indices.iter() {
                 if first_node_index != second_node_index
                     && second_node_index != *valid_third_node_index
                     && first_node_index != *valid_third_node_index
                 {
-                    let path = vec![
-                        first_node_index, 
-                        second_node_index, 
-                        *valid_third_node_index
-                    ];
+                    let path = vec![first_node_index, second_node_index, *valid_third_node_index];
                     let mut free: Vec<usize> = (0..nodes.len()).collect();
                     free.retain(|x| !path.contains(x));
 
@@ -102,7 +94,7 @@ fn generate_start_tasks(
             }
         }
     }
-    sort_tasks(&mut tasks, distances, false);
+    sort_tasks(&mut tasks, &distances, false);
     info!("Generated {} start tasks", tasks.len());
     debug!("Start tasks: {:?}", tasks);
     tasks
@@ -111,33 +103,29 @@ fn generate_start_tasks(
 fn get_tasks(
     path: Vec<usize>,
     free: Vec<usize>,
-    angles: &[Vec<Vec<usize>>],
-    distances: &[Vec<f32>],
+    angles: &Vec<Vec<Vec<usize>>>,
+    distances: &Vec<Vec<f32>>,
 ) -> Vec<Task> {
     let mut potential_options: Vec<usize> =
         angles[path[path.len() - 2]][path[path.len() - 1]].clone();
 
-    potential_options.retain(
-        |potential_option| free.contains(potential_option)
-    );
+    potential_options.retain(|potential_option| return free.contains(potential_option));
     let mut next_tasks: Vec<Task> = vec![];
     for node_i in potential_options.iter() {
         let mut new_free = free.clone();
         let mut new_path = path.clone();
-        new_free.retain(|x| x != node_i);
+        new_free.retain(|x| return x != node_i);
         new_path.push(*node_i);
         next_tasks.push(Task {
             path: new_path,
             free: new_free,
         });
     }
-    sort_tasks(&mut next_tasks, distances, true);
+    sort_tasks(&mut next_tasks, &distances, true);
     next_tasks
 }
 
-fn indices_to_nodes(
-        nodes: Vec<Node>, 
-        indices_path: &Vec<usize>) -> Vec<Node> {
+fn indices_to_nodes(nodes: Vec<Node>, indices_path: &Vec<usize>) -> Vec<Node> {
     let mut node_path: Vec<Node> = vec![];
     for i in indices_path {
         node_path.push(nodes[*i]);
@@ -145,45 +133,24 @@ fn indices_to_nodes(
     node_path
 }
 
-fn solve(
-        nodes: Vec<Node>, 
-        search_duration: f32) -> Option<Vec<Node>> {
-    // Alle Winkel und Distanzen werden berechnet und gespeichert
-    let (angles, distances) = 
-        calc_angles_distances(&nodes);
-    
-    // Alle Möglichen Kombinationen aus zwei Strecken werden als Anfangspunkte
-    // in der Aufgabenliste gespeichert 
-    let mut task_queue: Vec<Task> = 
-        generate_start_tasks(&nodes, &angles, &distances);
-    
-    // Diese Variable enthält alle Lösungen die gefunden werden
-    let mut solution_paths: Vec<Vec<usize>> = vec![];
-    
-    // Diese Variablen enthalten die kürzeste gefundene Lösung sowie deren Länge
-    let mut shortest: Vec<usize> = vec![];
-    let mut shortest_length: f32 = MAX;
+fn solve(nodes: Vec<Node>) -> Option<Vec<Node>> {
+    let (angles, distances) = calc_angles_distances(&nodes);
+    let mut task_queue: Vec<Task> = generate_start_tasks(&nodes, &angles, &distances);
 
-    // Diese Variablen sind nur zum Debuggen und Erfassen von Zeiten
+    let mut solution_paths: Vec<Vec<usize>> = vec![];
+
     let timer = Instant::now();
     let mut iteration = 0i64;
     let mut last_time = timer.elapsed().as_secs_f32();
     let update_frequency = 1000000;
-
-    // Solange es noch Aufgaben zu Lösen gibt und 
-    // weniger Zeit vergangen ist als vorgegeben
-    while !task_queue.is_empty() && timer.elapsed().as_secs_f32() < search_duration {
-        // Schicke alle "update_frequency" iterationen performance updates
+    let mut shortest: Vec<usize> = vec![];
+    let mut shortest_length: f32 = MAX;
+    while !task_queue.is_empty() {
+        //debug!("task_queue: {:?}", task_queue);
         if iteration % update_frequency == 0 {
-            let average_iterations = 
-                iteration as f32 / timer.elapsed().as_secs_f32();
-
-            let update_time = 
-                timer.elapsed().as_secs_f32() - last_time;
-
-            let iterations = 
-                update_frequency as f64 / update_time as f64;
-
+            let average_iterations = iteration as f32 / timer.elapsed().as_secs_f32();
+            let update_time = timer.elapsed().as_secs_f32() - last_time;
+            let iterations = update_frequency as f64 / update_time as f64;
             info!(
                 "
                 Average iterations per second:  {:?}
@@ -195,29 +162,20 @@ fn solve(
             );
             last_time = timer.elapsed().as_secs_f32();
         }
-        
-        // Schreibt die oberste Aufgabe in die "task" Variable 
         let task = task_queue.pop().unwrap();
-        // Falls der Pfad gleich viele Nodes beeinhaltet wie vorgegeben 
         if task.path.len() == nodes.len() {
-            // Wird er als lösung in die Liste gespeichert
             solution_paths.push(task.path.clone());
-
-            // Falls er kürzer als der bisher Kürzeste ist
-            let new = task.path.clone();
-            let new_len = path_len(&new, &distances);
+            let new = solution_paths.last().unwrap();
+            let new_len = path_len(new, &distances);
             if shortest_length > new_len {
-                // wird er als neue Lösung gespeichert
-                shortest_length = new_len;
+                shortest_length = new_len.clone();
                 shortest = new.clone();
-
                 info!(
-                    "\nSolution Nr. {:?}:\n    Solution length: {:?}\n    {:?}",
+                    "\nSolution Nr. {:?}: \n    Solution length: {:?} \n    {:?} ",
                     solution_paths.len(),
                     new_len,
                     new
                 );
-
                 let node_path = indices_to_nodes(nodes.clone(), &shortest);
                 render(&nodes, &node_path);
             } else {
@@ -228,31 +186,25 @@ fn solve(
                     new
                 );
             }
-        } else {
-            // Falls es sich nicht um eine Lösung handelt
-            // werden aus dem Pfad neue Pfade generiert und 
-            // als Aufgaben zur Liste Hinzugefügt
-            let mut tasks = get_tasks(task.path, task.free, &angles, &distances);
-            task_queue.append(&mut tasks);
         }
+        let mut tasks = get_tasks(task.path, task.free, &angles, &distances);
+        task_queue.append(&mut tasks);
         iteration += 1;
     }
-    // Gibt nachdem das Suchen beendet wurde die kürzeste Lösung zurück
     if !solution_paths.is_empty() {
-        Some(indices_to_nodes(nodes, &shortest))
-    } else {
-        None
+        return Some(indices_to_nodes(nodes, &shortest));
     }
+    return None;
 }
 
 fn main() {
     env_logger::init();
     let total_time = Instant::now();
-    let (nodes, search_duration) = read_nodes();
+    let nodes = read_nodes();
 
     let compute_render_time = Instant::now();
 
-    let solution: Vec<Node> = match solve(nodes.clone(), search_duration) {
+    let solution: Vec<Node> = match solve(nodes.clone()) {
         Some(x) => x,
         _ => {
             println!("No solution found.");
@@ -263,20 +215,18 @@ fn main() {
     let render_time = Instant::now();
     render(&nodes, &solution);
     let total = total_time.elapsed().as_micros();
-
-    info!("
+    info!(
+        "
 =============Time=============
 read: ca. {:?}%
 compute: ca. {:?}%
 render: ca. {:?}%
 ---------------
 total: {:?} mikro seconds",
-        (total - compute_render_time.elapsed().as_micros()) 
-            * 100 / total,
-        (compute_render_time.elapsed().as_micros() - render_time.elapsed().as_micros()) 
-            * 100 / total,
-        render_time.elapsed().as_micros() 
-            * 100 / total,
+        (total - compute_render_time.elapsed().as_micros()) * 100 / total,
+        (compute_render_time.elapsed().as_micros() - render_time.elapsed().as_micros()) * 100
+            / total,
+        render_time.elapsed().as_micros() * 100 / total,
         total
     );
 }

@@ -18,9 +18,10 @@ use std::path::PathBuf;
 struct Args {
     #[arg(short, long)]
     path: PathBuf,
+    duration: f32,
 }
 
-pub fn get_input() -> String {
+pub fn get_input() -> (String, f32) {
     let args = Args::parse();
 
     let path = Path::new(&args.path);
@@ -34,12 +35,12 @@ pub fn get_input() -> String {
     let mut s = String::new();
     match file.read_to_string(&mut s) {
         Err(why) => panic!("Konnte {} nicht lesen: {}", display, why),
-        Ok(_) => s,
+        Ok(_) => (s, args.duration),
     }
 }
 
-pub fn read_nodes() -> Vec<Node> {
-    let input = get_input();
+pub fn read_nodes() -> (Vec<Node>, f32) {
+    let (input, duration) = get_input();
 
     let split_coords = input.split('\n');
     let unsplit_corrds: Vec<&str> = split_coords.collect();
@@ -57,7 +58,7 @@ pub fn read_nodes() -> Vec<Node> {
     }
     info!("Loaded {} nodes", nodes.len());
     debug!("Loaded nodes:\n{:?}", nodes);
-    nodes
+    (nodes, duration)
 }
 
 pub fn render(nodes: &Vec<Node>, solution: &Vec<Node>) {
