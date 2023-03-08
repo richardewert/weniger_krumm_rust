@@ -147,7 +147,9 @@ fn indices_to_nodes(
 
 fn solve(
         nodes: Vec<Node>, 
-        search_duration: f32) -> Option<Vec<Node>> {
+        max_iterations: u64,
+        name: String
+    ) -> Option<(Vec<Node>, f32)> {
     // Alle Winkel und Distanzen werden berechnet und gespeichert
     let (angles, distances) = 
         calc_angles_distances(&nodes);
@@ -166,13 +168,13 @@ fn solve(
 
     // Diese Variablen sind nur zum Debuggen und Erfassen von Zeiten
     let timer = Instant::now();
-    let mut iteration = 0i64;
+    let mut iteration = 0u64;
     let mut last_time = timer.elapsed().as_secs_f32();
     let update_frequency = 1000000;
 
     // Solange es noch Aufgaben zu Lösen gibt und 
-    // weniger Zeit vergangen ist als vorgegeben
-    while !task_queue.is_empty() && timer.elapsed().as_secs_f32() < search_duration {
+    // weniger iterationen vergangen sind als vorgegeben
+    while !task_queue.is_empty() && iteration < max_iterations {
         // Schicke alle "update_frequency" iterationen performance updates
         if iteration % update_frequency == 0 {
             let average_iterations = 
@@ -188,7 +190,7 @@ fn solve(
                 "
                 Average iterations per second:  {:?}
                 Iterations per second           {:?}    
-                Time since last update:         {:?}",
+                Seconds since last update:      {:?}",
                 average_iterations.round() as u32,
                 iterations.round() as u32,
                 update_time
@@ -198,28 +200,28 @@ fn solve(
         
         // Schreibt die oberste Aufgabe in die "task" Variable 
         let task = task_queue.pop().unwrap();
-        // Falls der Pfad gleich viele Nodes beeinhaltet wie vorgegeben 
+        // Falls der Pfad gleich viele Nodes beinhaltet wie vorgegeben 
         if task.path.len() == nodes.len() {
-            // Wird er als lösung in die Liste gespeichert
+            // wird er als lösung in der Liste gespeichert
             solution_paths.push(task.path.clone());
 
-            // Falls er kürzer als der bisher Kürzeste ist
+            // Falls diese Lösung kürzer als der bisher kürzeste ist
             let new = task.path.clone();
             let new_len = path_len(&new, &distances);
             if shortest_length > new_len {
-                // wird er als neue Lösung gespeichert
+                // wird sie als neue Lösung gespeichert
                 shortest_length = new_len;
                 shortest = new.clone();
 
+                // und ausgegeben
+                let node_path = indices_to_nodes(nodes.clone(), &shortest);
+                render(&nodes, &node_path, shortest_length, name.clone());
                 info!(
                     "\nSolution Nr. {:?}:\n    Solution length: {:?}\n    {:?}",
                     solution_paths.len(),
                     new_len,
                     new
                 );
-
-                let node_path = indices_to_nodes(nodes.clone(), &shortest);
-                render(&nodes, &node_path);
             } else {
                 debug!(
                     "Solution Nr. {:?}: \nSolution length: {:?} \n{:?} ",
@@ -237,22 +239,26 @@ fn solve(
         }
         iteration += 1;
     }
-    // Gibt nachdem das Suchen beendet wurde die kürzeste Lösung zurück
+    // Gibt nachdem das Suchen beendet wurde, wenn es eine gibt die kürzeste Lösung zurück
     if !solution_paths.is_empty() {
-        Some(indices_to_nodes(nodes, &shortest))
+        Some((indices_to_nodes(nodes, &shortest), shortest_length))
     } else {
         None
     }
 }
 
 fn main() {
+    // Debug Variablen
     env_logger::init();
     let total_time = Instant::now();
-    let (nodes, search_duration) = read_nodes();
+    
+    // Ließt alle Nodes und die Suchlänge ein
+    let (nodes, max_iterations, name) = read_nodes();
 
     let compute_render_time = Instant::now();
-
-    let solution: Vec<Node> = match solve(nodes.clone(), search_duration) {
+    
+    // Ruft die "solve()" Funktion auf und gibt das Ergebnis aus
+    let (solution, solution_length) = match solve(nodes.clone(), max_iterations, name.clone()) {
         Some(x) => x,
         _ => {
             println!("No solution found.");
@@ -260,8 +266,11 @@ fn main() {
         }
     };
 
+    // Mehr Debug Informationen
     let render_time = Instant::now();
-    render(&nodes, &solution);
+    
+    // Stellt die gefundene Lösung dar
+    render(&nodes, &solution, solution_length, name);
     let total = total_time.elapsed().as_micros();
 
     info!("
