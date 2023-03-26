@@ -26,20 +26,28 @@ fn path_len(path: &Vec<usize>, distances: &[Vec<f32>]) -> f32 {
 
 fn calc_angles_distances(nodes: &[Node]) -> 
         (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) {
+    // 2d Vector, um alle Distanzen zwischen 2 Nodes zu speichern
     let mut distances: Vec<Vec<f32>> = vec![];
+    // 3d Vector, um alle Winkel zwischen 3 Nodes zu speichern
     let mut angles: Vec<Vec<Vec<usize>>> = vec![];
+    // Debug Variable, um Menge von einträgen zu zählen
     let mut cache_entries = 0;
-    for (start, start_node) in nodes.iter().enumerate() {
+    for (start_node_index, start_node) in nodes.iter().enumerate() {
         distances.push(vec![]);
         angles.push(vec![]);
-        for (main, main_node) in nodes.iter().enumerate() {
-            distances[start].push(start_node.distance(main_node));
-            angles[start].push(vec![]);
-            for (end, end_node) in nodes.iter().enumerate() {
+        for (main_node_index, main_node) in nodes.iter().enumerate() {
+            distances[start_node_index].push(start_node.distance(main_node));
+            angles[start_node_index].push(vec![]);
+            for (end_node_index, end_node) in nodes.iter().enumerate() {
                 let angle = main_node.angle(start_node, end_node);
-                debug!("Angle between {start}, {main}, {end} : {angle}");
+                debug!(
+                    "Angle between {:?}, {:?}, {:?} : {:?}", 
+                    start_node_index, 
+                    main_node_index, 
+                    end_node_index, 
+                    angle);
                 if 90f32 <= angle {
-                    angles[start][main].push(end);
+                    angles[start_node_index][main_node_index].push(end_node_index);
                     cache_entries += 1;
                 }
             }
@@ -151,10 +159,10 @@ fn solve(
         name: String
     ) -> Option<(Vec<Node>, f32)> {
     // Alle Winkel und Distanzen werden berechnet und gespeichert
-    let (angles, distances) = 
-        calc_angles_distances(&nodes);
+    let (angles, distances) = calc_angles_distances(&nodes);
     
-    // Alle Möglichen Kombinationen aus zwei Strecken werden als Anfangspunkte
+    // Alle Möglichen Kombinationen aus zwei Strecken werden
+    // nach länge sortiert als Anfangspunkte
     // in der Aufgabenliste gespeichert 
     let mut task_queue: Vec<Task> = 
         generate_start_tasks(&nodes, &angles, &distances);
