@@ -71,7 +71,7 @@ pub fn render(nodes: &Vec<Node>, solution: &Vec<Node>, length: f32, input_file_n
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(format!("./outputs/txt/{}.txt", name))
+        .open(PathBuf::from("./outputs/txt/").join(format!("{}.txt", name)))
         .unwrap();
     let size_x = 1080;
     let size_y = 720;
@@ -113,6 +113,6 @@ pub fn render(nodes: &Vec<Node>, solution: &Vec<Node>, length: f32, input_file_n
         }
     }
 
-    render::save(&canvas, &format!("./outputs/svg/{}.svg", name), SvgRenderer::new()).expect("Failed to save");
+    render::save(&canvas, PathBuf::from("./outputs/svg/").join(format!("{}.svg", name)).to_str().unwrap(), SvgRenderer::new()).expect("Failed to save");
     info!("Rendered image");
 }

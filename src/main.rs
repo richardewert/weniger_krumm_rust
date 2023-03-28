@@ -124,7 +124,7 @@ fn solve_recursive(
     nodes: &Vec<Node>, 
     angles: &Vec<Vec<Vec<usize>>>, 
     distances: &Vec<Vec<f32>>, 
-    solution: &mut Vec<usize>, 
+    solution: &mut Arc<Mutex<Vec<usize>>>, 
     input_file_name: &String, 
     iterations: &mut u64,
     max_iterations: &u64,
@@ -133,12 +133,15 @@ fn solve_recursive(
     if *iterations > *max_iterations {return};
     if path.len() == distances.len() {
         let length = path_len(path, distances);
-        if length < path_len(solution, distances) || solution.len() == 0 {
-            path.clone_into(solution);
-            render(nodes, &indices_to_nodes(nodes.clone(), solution), length, input_file_name.clone())
+        let mut global_best = solution.lock().unwrap();
+        if length < path_len(&global_best, distances) || global_best.len() == 0 {
+            path.clone_into(&mut global_best);
+            render(nodes, &indices_to_nodes(nodes.clone(), &global_best), length, input_file_name.clone());
         }
+        drop(global_best);
     }
 
+    // TODO: presort angles
     let mut options: Vec<usize> = angles[path[path.len() - 2]][path[path.len() - 1]].clone();
     options.retain(|x| !path.contains(x));
     let last_path_element = path.last().unwrap();
@@ -157,9 +160,6 @@ fn solve_recursive(
     for i in options {
         path.push(i);
         solve_recursive(path, nodes, angles, distances, solution, input_file_name, iterations, max_iterations); 
-        if *iterations % 1000000 == 0 {
-            println!("{iterations}");
-        }
         path.pop().unwrap();
     }
 }
@@ -173,37 +173,41 @@ fn main() {
 
     let start_paths: Vec<Vec<usize>> = generate_start_paths(&angles, &distances);
 
-    let solution: Vec<usize> = vec![];
-    //let solution: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(vec![]));
+    let solution: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(vec![]));
+    let done_threads: Arc<Mutex<u32>> = Arc::new(Mutex::new(0));
 
-    let mut handles: Vec<JoinHandle<Vec<usize>>> = vec![];
-    for i in 0..start_paths.len() {
+    let mut handles: Vec<JoinHandle<()>> = vec![];
+    let total_threads = 24;
+    for i in 0..total_threads {
         let thread_number = i.clone(); 
+        let l_done_threads = Arc::clone(&done_threads);
         let mut l_start_path = start_paths[i].clone();
         let l_nodes = nodes.clone();
         let l_angles = angles.clone();
         let l_distances = distances.clone();
-        let mut l_solution = solution.clone();
+        let mut l_solution = Arc::clone(&solution);
         let l_name = name.clone();
         let mut l_iterations = 0;
         let l_max_iterations = max_iterations.clone();
 
         let handle = thread::spawn(move || {
             solve_recursive(&mut l_start_path, &l_nodes, &l_angles, &l_distances, &mut l_solution, &l_name, &mut l_iterations, &l_max_iterations);
-            info!("ran! {thread_number}");
-            l_solution
+            let mut done = l_done_threads.lock().unwrap();
+            *done += 1;
+            info!("Finished thread {:?} \n {:?}/{:?}", thread_number, done, total_threads);
+            drop(done);
         });
 
         handles.push(handle);
     }
 
-    let mut solutions: Vec<Vec<usize>> = vec![];
     while let Some(handle) = handles.pop() {
-        solutions.push(handle.join().unwrap());
+        handle.join().unwrap();
     }
 
+    let final_solution = solution.lock().unwrap();
     // Stellt die gefundene Lösung dar
-    if !solution.is_empty() {
-        render(&nodes, &indices_to_nodes(nodes.clone(), &solution), path_len(&solution, &distances), name);
+    if !final_solution.is_empty() {
+        render(&nodes, &indices_to_nodes(nodes.clone(), &final_solution), path_len(&final_solution, &distances), name);
     }
 }
