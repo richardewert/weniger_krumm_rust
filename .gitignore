@@ -1,2 +1,4 @@
 target/
+output/svg/
+output/txt/
 output.svg
