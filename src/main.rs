@@ -20,7 +20,7 @@ fn path_len(path: &Vec<usize>, distances: &[Vec<f32>]) -> f32 {
     distance
 }
 
-fn calc_angles_distances(nodes: &[Node]) -> 
+fn calc_angles_distances(nodes: &Vec<Node>) -> 
         (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) {
     // 2d Vector, um alle Distanzen zwischen 2 Nodes zu speichern
     let mut distances: Vec<Vec<f32>> = vec![];
@@ -47,6 +47,17 @@ fn calc_angles_distances(nodes: &[Node]) ->
                     cache_entries += 1;
                 }
             }
+            angles[start_node_index][main_node_index].sort_by(|a, b| {
+                let val_a = main_node.distance(&nodes[*a]);
+                let val_b = main_node.distance(&nodes[*b]);
+                if val_a < val_b {
+                    Ordering::Less
+                } else if val_a == val_b {
+                    Ordering::Equal
+                } else {
+                    Ordering::Greater
+                }
+            });
         }
     }
     info!("Cache entries count: {}", cache_entries);
@@ -55,17 +66,10 @@ fn calc_angles_distances(nodes: &[Node]) ->
     (angles, distances)
 }
 
-fn sort_paths(tasks: &mut Vec<Vec<usize>>, distances: &Vec<Vec<f32>>, sort_by_last: bool) {
+fn sort_paths(tasks: &mut Vec<Vec<usize>>, distances: &Vec<Vec<f32>>) {
     tasks.sort_by(|a, b| {
-        let val_a;
-        let val_b;
-        if sort_by_last {
-            val_a = distances[a[a.len() - 2]][a[a.len() - 1]];
-            val_b = distances[b[b.len() - 2]][b[b.len() - 1]];
-        } else {
-            val_a = path_len(&a, distances);
-            val_b = path_len(&b, distances);
-        }
+        let val_a = path_len(&a, distances);
+        let val_b = path_len(&b, distances);
         if val_a > val_b {
             Ordering::Less
         } else if val_a == val_b {
@@ -102,7 +106,7 @@ fn generate_start_paths(
             }
         }
     }
-    sort_paths(&mut paths, distances, false);
+    sort_paths(&mut paths, distances);
     paths.reverse();
     info!("Generated {} start paths", paths.len());
     debug!("Start paths: {:?}", paths);
@@ -121,6 +125,7 @@ fn indices_to_nodes(
 
 fn solve_recursive(
     path: &mut Vec<usize>, 
+    path_length: f32,
     nodes: &Vec<Node>, 
     angles: &Vec<Vec<Vec<usize>>>, 
     distances: &Vec<Vec<f32>>, 
@@ -128,38 +133,29 @@ fn solve_recursive(
     input_file_name: &String, 
     iterations: &mut u64,
     max_iterations: &u64,
+    solution_length: &mut Arc<Mutex<f32>>,
 ) {
     *iterations += 1;
-    if *iterations > *max_iterations {return};
+    let mut sol_len = solution_length.lock().unwrap();
+    if *iterations > *max_iterations || path_length >= *sol_len {return};
     if path.len() == distances.len() {
-        let length = path_len(path, distances);
         let mut global_best = solution.lock().unwrap();
-        if length < path_len(&global_best, distances) || global_best.len() == 0 {
+        if path_length < path_len(&global_best, distances) || global_best.len() == 0 {
             path.clone_into(&mut global_best);
-            render(nodes, &indices_to_nodes(nodes.clone(), &global_best), length, input_file_name.clone());
+            render(nodes, &indices_to_nodes(nodes.clone(), &global_best), path_length, input_file_name.clone());
+            *sol_len = path_length;
         }
-        drop(global_best);
     }
+    drop(sol_len);
 
     // TODO: presort angles
     let mut options: Vec<usize> = angles[path[path.len() - 2]][path[path.len() - 1]].clone();
     options.retain(|x| !path.contains(x));
-    let last_path_element = path.last().unwrap();
-    options.sort_by(|b, a| {
-        let val_a = distances[*a][*last_path_element];
-        let val_b = distances[*b][*last_path_element];
-        if val_a > val_b {
-            Ordering::Less
-        } else if val_a == val_b {
-            Ordering::Equal
-        } else {
-            Ordering::Greater
-        }
-    });
 
     for i in options {
         path.push(i);
-        solve_recursive(path, nodes, angles, distances, solution, input_file_name, iterations, max_iterations); 
+        let add_length = distances[path[path.len() - 2]][path[path.len() - 1]];
+        solve_recursive(path, path_length + add_length, nodes, angles, distances, solution, input_file_name, iterations, max_iterations, solution_length); 
         path.pop().unwrap();
     }
 }
@@ -174,27 +170,34 @@ fn main() {
     let start_paths: Vec<Vec<usize>> = generate_start_paths(&angles, &distances);
 
     let solution: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(vec![]));
+    let solution_length: Arc<Mutex<f32>> = Arc::new(Mutex::new(MAX));
     let done_threads: Arc<Mutex<u32>> = Arc::new(Mutex::new(0));
 
     let mut handles: Vec<JoinHandle<()>> = vec![];
     let total_threads = 24;
     for i in 0..total_threads {
-        let thread_number = i.clone(); 
+        let mut l_solution = Arc::clone(&solution);
+        let mut l_solution_length = Arc::clone(&solution_length);
         let l_done_threads = Arc::clone(&done_threads);
+
         let mut l_start_path = start_paths[i].clone();
+        let mut l_iterations = 0;
+
+        let thread_number = i.clone(); 
+
         let l_nodes = nodes.clone();
         let l_angles = angles.clone();
         let l_distances = distances.clone();
-        let mut l_solution = Arc::clone(&solution);
+
         let l_name = name.clone();
-        let mut l_iterations = 0;
         let l_max_iterations = max_iterations.clone();
+        let l_path_length = path_len(&l_start_path, &distances);
 
         let handle = thread::spawn(move || {
-            solve_recursive(&mut l_start_path, &l_nodes, &l_angles, &l_distances, &mut l_solution, &l_name, &mut l_iterations, &l_max_iterations);
+            solve_recursive(&mut l_start_path, l_path_length, &l_nodes, &l_angles, &l_distances, &mut l_solution, &l_name, &mut l_iterations, &l_max_iterations, &mut l_solution_length);
             let mut done = l_done_threads.lock().unwrap();
             *done += 1;
-            info!("Finished thread {:?} \n {:?}/{:?}", thread_number, done, total_threads);
+            info!("Finished thread {:?}  {:?}/{:?}", thread_number, done, total_threads);
             drop(done);
         });
 
