@@ -68,10 +68,13 @@ pub fn read_nodes() -> (Vec<Node>, u64, String) {
 pub fn render(nodes: &Vec<Node>, solution: &Vec<Node>, length: f32, input_file_name: String) {
     let name = format!("output_{:?}_{:?}", input_file_name, length);
 
+    let place = PathBuf::from("./outputs/txt/").join(format!("{}.txt", name));
+    info!("Rendered solution to: {:?}", place);
+
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(PathBuf::from("./outputs/txt/").join(format!("{}.txt", name)))
+        .open(place)
         .unwrap();
     let size_x = 1080;
     let size_y = 720;
@@ -112,7 +115,9 @@ pub fn render(nodes: &Vec<Node>, solution: &Vec<Node>, length: f32, input_file_n
             canvas.display_list.add(line);
         }
     }
-
-    render::save(&canvas, PathBuf::from("./outputs/svg/").join(format!("{}.svg", name)).to_str().unwrap(), SvgRenderer::new()).expect("Failed to save");
-    info!("Rendered image");
+    
+    let binding = PathBuf::from("./outputs/svg/").join(format!("{}.svg", name));
+    let place = binding.to_str().unwrap();
+    render::save(&canvas, place.clone(), SvgRenderer::new()).expect("Failed to save");
+    info!("Rendered image to: {:?}", place);
 }

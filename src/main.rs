@@ -8,6 +8,7 @@ use std::cmp::Ordering;
 use std::f32::MAX;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
+use std::thread::available_parallelism;
 use std::thread::{self, JoinHandle};
 
 fn path_len(path: &Vec<usize>, distances: &[Vec<f32>]) -> f32 {
@@ -107,7 +108,6 @@ fn generate_start_paths(
         }
     }
     sort_paths(&mut paths, distances);
-    paths.reverse();
     info!("Generated {} start paths", paths.len());
     debug!("Start paths: {:?}", paths);
     paths
@@ -144,11 +144,11 @@ fn solve_recursive(
             path.clone_into(&mut global_best);
             render(nodes, &indices_to_nodes(nodes.clone(), &global_best), path_length, input_file_name.clone());
             *sol_len = path_length;
+            return;
         }
     }
     drop(sol_len);
 
-    // TODO: presort angles
     let mut options: Vec<usize> = angles[path[path.len() - 2]][path[path.len() - 1]].clone();
     options.retain(|x| !path.contains(x));
 
@@ -167,23 +167,24 @@ fn main() {
 
     let (angles, distances) = calc_angles_distances(&nodes);
 
-    let start_paths: Vec<Vec<usize>> = generate_start_paths(&angles, &distances);
+    let generated_paths = generate_start_paths(&angles, &distances);
+    let start_paths: Arc<Mutex<Vec<Vec<usize>>>> = Arc::new(Mutex::new(generated_paths.clone()));
 
     let solution: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(vec![]));
     let solution_length: Arc<Mutex<f32>> = Arc::new(Mutex::new(MAX));
     let done_threads: Arc<Mutex<u32>> = Arc::new(Mutex::new(0));
 
     let mut handles: Vec<JoinHandle<()>> = vec![];
-    let total_threads = 24;
-    for i in 0..total_threads {
+    let total_threads: usize = available_parallelism().unwrap().into();
+    info!("Starting up {:?} threads", total_threads);
+    for _i in 0..(total_threads - 1) {
+        let total_tasks = generated_paths.len();
         let mut l_solution = Arc::clone(&solution);
         let mut l_solution_length = Arc::clone(&solution_length);
+        let l_start_paths = Arc::clone(&start_paths);
         let l_done_threads = Arc::clone(&done_threads);
 
-        let mut l_start_path = start_paths[i].clone();
         let mut l_iterations = 0;
-
-        let thread_number = i.clone(); 
 
         let l_nodes = nodes.clone();
         let l_angles = angles.clone();
@@ -191,14 +192,24 @@ fn main() {
 
         let l_name = name.clone();
         let l_max_iterations = max_iterations.clone();
-        let l_path_length = path_len(&l_start_path, &distances);
 
         let handle = thread::spawn(move || {
-            solve_recursive(&mut l_start_path, l_path_length, &l_nodes, &l_angles, &l_distances, &mut l_solution, &l_name, &mut l_iterations, &l_max_iterations, &mut l_solution_length);
-            let mut done = l_done_threads.lock().unwrap();
-            *done += 1;
-            info!("Finished thread {:?}  {:?}/{:?}", thread_number, done, total_threads);
-            drop(done);
+            info!("Started thread {:?}", thread::current().id());
+            loop {
+                let mut todo = l_start_paths.lock().unwrap();
+                if let Some(mut l_start_path) = todo.pop() {
+                    let thread_number = todo.len();
+                    drop(todo);
+                    let l_path_length = path_len(&l_start_path, &l_distances);
+                    solve_recursive(&mut l_start_path, l_path_length, &l_nodes, &l_angles, &l_distances, &mut l_solution, &l_name, &mut l_iterations, &l_max_iterations, &mut l_solution_length);
+                    let mut done = l_done_threads.lock().unwrap();
+                    *done += 1;
+                    debug!("Thread {:?} finished work on start path with priority {:?}  {:?}/{:?}", thread::current().id(), thread_number, done, total_tasks);
+                    drop(done);
+                } else {
+                    break;
+                }
+            }
         });
 
         handles.push(handle);
@@ -207,6 +218,8 @@ fn main() {
     while let Some(handle) = handles.pop() {
         handle.join().unwrap();
     }
+    info!("First phase done. Starting to swap");
+
 
     let final_solution = solution.lock().unwrap();
     // Stellt die gefundene Lösung dar
