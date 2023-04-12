@@ -74,8 +74,8 @@ pub fn render(nodes: &Vec<Node>, solution: &Vec<Node>, length: f32, input_file_n
     let mut file = OpenOptions::new()
         .create(true)
         .append(true)
-        .open(place)
-        .unwrap();
+        .open(place.clone())
+        .unwrap_or_else(|_e| panic!("Couldn't save to: {:?}", place));
     let size_x = 1080;
     let size_y = 720;
     let mut canvas = Canvas::new(size_x, size_y);

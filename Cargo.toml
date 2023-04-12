@@ -9,6 +9,7 @@ edition = "2021"
 clap = { version = "4.0.32", features = ["derive"] }
 draw = "0.3.0"
 env_logger = "0.10.0"
+indicatif = "0.17.3"
 libm = "0.2.6"
 log = "0.4.17"
 

@@ -13,30 +13,36 @@ use node_mod::Node;
 use std::cmp::Ordering;
 use std::f32::MAX;
 use std::num::NonZeroUsize;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+// use std::time::Instant;
 use std::thread::available_parallelism;
 use std::thread::{self, JoinHandle};
+use indicatif::{ProgressBar, ProgressStyle};
 
+// Berechnet die Länge Eines Pfades bestehend aus Indexen von Nodes
 fn path_len(path: &Vec<usize>, distances: &[Vec<f32>]) -> f32 {
     let mut distance: f32 = 0f32;
-    for (i, _node_index) in path.iter().enumerate() {
-        if i < path.len() - 1 {
-            distance += distances[path[i]][path[i + 1]];
-        }
+    // "rest" enthält jetzt den Pfad bis auf das letzte Element
+    let (_last, rest) = path.split_last().unwrap();
+    for (i, _node_index) in rest.iter().enumerate() {
+        // Für jede Node im path wird die Distanz zur nächsten berechnet
+        distance += distances[path[i]][path[i + 1]];
     }
     distance
 }
 
 fn calc_angles_distances(nodes: &Vec<Node>) -> 
-        (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) {
+        (Vec<Vec<Vec<usize>>>, Vec<Vec<f32>>) { 
     // 2d Vector, um alle Distanzen zwischen 2 Nodes zu speichern
     let mut distances: Vec<Vec<f32>> = vec![];
-    // 3d Vector, um alle Winkel zwischen 3 Nodes zu speichern
+    // 3d Vector, um alle Ergänzungen für 2 Nodes zu speichern
     let mut angles: Vec<Vec<Vec<usize>>> = vec![];
     // Debug Variable, um Menge von einträgen zu zählen
     let mut cache_entries = 0;
+    // Es wird zum ersten Mal über jede Node iteriert 
     for (start_node_index, start_node) in nodes.iter().enumerate() {
+        // Beide Vectoren werden "2d gemacht"
         distances.push(vec![]);
         angles.push(vec![]);
         for (main_node_index, main_node) in nodes.iter().enumerate() {
@@ -55,9 +61,17 @@ fn calc_angles_distances(nodes: &Vec<Node>) ->
                     cache_entries += 1;
                 }
             }
+            // Die erstellte Liste wird nach Distanz zur mittleren Node sortiert
             angles[start_node_index][main_node_index].sort_by(|a, b| {
-                let val_a = main_node.distance(&nodes[*a]);
-                let val_b = main_node.distance(&nodes[*b]);
+                let node_a = &nodes[*a]; 
+                let node_b = &nodes[*b];
+                // Distanz wird ausgerechnet
+                let node_a_distance = main_node.distance(node_a);
+                let node_b_distance = main_node.distance(node_b);
+    
+                // Distanz wird mit Wert zum vergleichen gleichgesetzt
+                let val_a = node_a_distance;
+                let val_b = node_b_distance;
                 if val_a < val_b {
                     Ordering::Less
                 } else if val_a == val_b {
@@ -155,7 +169,7 @@ fn solve_recursive(
     // wird sie als neue gespeichert und die Funktion abgebrochen.
     if path.len() == nodes.len() {
         // Auch die beste Lösung wird "gelocked"
-        let mut best_solution_lock = best_solution.lock().unwrap();
+        let mut best_solution_lock = best_solution.lock().unwrap_or_else(|e|panic!("{}", e));
         // Der aktuelle Pfad wird in die Stelle der besten Lösung geklont
         path.clone_into(&mut best_solution_lock);
         // Die Länge der besten Lösung wird aktuallisiert 
@@ -207,7 +221,10 @@ fn solve_recursive(
 
 fn main() {
     env_logger::init();
-    
+
+    assert!(PathBuf::from("./outputs/txt/").is_dir(), "Txt Ordner nicht gefunden. Bitte sicherstellen, dass der Pfad ./outputs/txt/ valide ist");
+    assert!(PathBuf::from("./outputs/svg/").is_dir(), "Svg Ordner nicht gefunden. Bitte ebenfalls sicherstellen, dass der Pfad ./outputs/svg/ valide ist");
+
     // Ließt alle Nodes und die Suchlänge ein
     let (nodes, max_iterations, name) = read_nodes();
 
@@ -233,6 +250,15 @@ fn main() {
     let total_threads: usize = available_parallelism()
         .unwrap_or(NonZeroUsize::new(1).unwrap()).into();
 
+    // Erstellen der Fortschrittsleiste
+    let bar: ProgressBar = ProgressBar::new(generated_paths.len() as u64)
+        .with_style(ProgressStyle::with_template(
+            "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {msg} (eta: {eta})"
+        ).unwrap()
+    );
+    bar.set_message("Geprüfte Startpfade");
+let bar = Arc::new(Mutex::new(bar));
+
     info!("Starting up {:?} threads", total_threads);
     for _i in 0..(total_threads - 1) {
         // Jeder Thread benötigt Zugriff auf die obigen Variablen.
@@ -243,6 +269,7 @@ fn main() {
         let mut l_best_solution_length = Arc::clone(&best_solution_length);
         let l_start_paths = Arc::clone(&start_paths);
         let l_done_threads = Arc::clone(&done_threads);
+        let l_bar = Arc::clone(&bar);
 
         // Konstante Werte werden geklont
         let l_nodes = nodes.clone();
@@ -278,6 +305,9 @@ fn main() {
                     );
                     // Debug und ausgabe (irrelevant)
                     let mut done = l_done_threads.lock().unwrap();
+                    let bar = l_bar.lock().unwrap();
+                    bar.inc(1);
+                    drop(bar);
                     *done += 1;
                     debug!(
                         "Thread {:?} finished path with priority {:?}  {:?}/{:?}",
@@ -288,18 +318,21 @@ fn main() {
                     );
                     drop(done);
                 } else {
+                    info!("Thread {:?} returned", thread::current().id());
                     // Beende die Schleife und damit den Thread,
                     // wenn alle Startpfade probiert worden sind
                     break;
                 }
             }
         });
+        // Thread handle wird gespeichert
         handles.push(handle);
     }
     // Iteriert über alle Threadhandles und wartet bis sie fertig sind
     while let Some(handle) = handles.pop() {
         handle.join().unwrap();
     }
+    bar.lock().unwrap().finish();
 
     let final_solution = best_solution.lock().unwrap();
     // Stellt die gefundene Lösung dar
