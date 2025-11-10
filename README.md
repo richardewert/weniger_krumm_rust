@@ -12,8 +12,14 @@ Vary the example file by adjusting the path.
 The number is the amount of different paths that are checked for each combination of 3 valid start paths.
 Computation time will increase when increasing this value, but results might improve.
 
-The log level can be adjusted to your liking.
-Maybe try out different compiler flags to improve time.
+It is recommended to try out different compiler flags to improve time.
 
-The programm will try to use all your threads.
+For a short help message run:
+
+```bash
+cargo r -- --help
+```
+
+
+The programm will try to use all available threads.
 
