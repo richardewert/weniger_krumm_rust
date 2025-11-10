@@ -4,6 +4,20 @@ Implementation of the "Weniger Krumme Touren" task from the second round of the 
 
 ## compile and run
 
+Either install the required Rust toolchain or with nix installed and flakes enabled enter the dev shell using:
+
+```bash
+nix develop
+```
+
+```bash
+nix run
+```
+
+is currently not supported.
+
+To execute the actual program
+
 ```bash
 RUST_LOG=info cargo r --release -- --path ./src/assets/wenigerkrumm5.txt 1000
 ```
@@ -21,5 +35,5 @@ cargo r -- --help
 ```
 
 
-The programm will try to use all available threads.
+The program will try to use all available threads.
 
